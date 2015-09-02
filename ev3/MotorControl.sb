@@ -1,0 +1,263 @@
+' LIBRARY:  MotorControl ------------------------------------------------------------
+
+' Some motors of the model  are grouped together to form a stronger,
+' more accurate compound motor.  Throughout the program, these
+' compound motors are referenced in commends with the letter A,B,C,D,E.
+' When only one individual motor is meant, the daisy-chaining layer is prefixed
+' (e.g. 1.C)
+'  Motor A = 1.A
+'  Motor B = 2.A + 2.B
+'  Motor C = 1.C
+'  Motor D = 2.C + 2.D
+'  Motor E = 1.B + 1.D
+
+' Variables to pass  data to sub-programs and back
+MotorControl_a = 0    ' quarters to move A up
+MotorControl_b = 0    ' quarters to move B right
+MotorControl_c = 0    ' quarters to move C up
+MotorControl_d = 0    ' quarters to move D right
+MotorControl_e = 0    ' quarters to move E clockwise
+
+' Global constants and variables or internal use of  library  (with initializers)
+MotorControl_DAISY_TRANSMISSION_OVERHEAD = 1
+MotorControl_AC_QUARTERTURN_TIME = 78
+MotorControl_AC_HALFTURN_TIME = 150
+MotorControl_AC_TWOSIDES_PENALTY = 8
+MotorControl_BD_QUARTERTURN_TIME = 55
+MotorControl_BD_HALFTURN_TIME = 100
+MotorControl_BD_TWOSIDES_PENALTY = 5
+MotorControl_E_QUARTERTURN_TIME = 55
+MotorControl_E_HALFTURN_TIME = 100
+
+MotorControl_moveendtime = -100000   
+MotorControl_lastusedaxis = -1
+
+' Initialize Hardware for MotorControl
+Sub MotorControl_Init
+  Motor.Stop("ABCD","False")
+  Motor.Stop("2ABCD","False")
+  ' align gears of single-controlled motors to fit the cube orientation
+  Motor.Power("AC", 5)
+  Motor.Start("AC")
+  ' take up slack of compound motors E
+  Motor.Power("B", 5)
+  Motor.Power("D", -5)
+  Motor.Start("BD")
+  ' take up slack of compound motors B and D
+  Motor.Power("2A", 7)
+  Motor.Power("2B", -7)
+  Motor.Power("2C", 7)
+  Motor.Power("2D", -7)
+  Motor.Start("2ABCD")
+  
+  Program.Delay(100)
+  
+  ' stop all aligment moves
+  Motor.Stop("ABCD","true")    
+  Motor.Stop("2ABCD","true")    
+  Program.Delay(100)
+
+  Motor.ResetCount("ABCD")
+  Motor.ResetCount("2ABCD")
+  
+  ' move single-controlled motors to 0 position
+  Motor.SchedulePowerForCount("AC",-5,0,2,0,"true")   
+  Program.Delay(100)
+EndSub
+
+' Subprogram to turn faces on A-C axis   (axis 0)
+Sub MotorControl_MoveAC
+  ' when moving on same axis, give prevous move more time
+  If MotorControl_lastusedaxis=0 Then  
+    MotorControl_moveendtime = MotorControl_moveendtime + 200
+  Endif  
+  ' wait until previous turn has progressed far enough
+  While EV3.Time < MotorControl_moveendtime
+  EndWhile
+  ' Memorize when the current move started 
+  MotorControl_movestarttime = EV3.Time 
+  ' End-Time defaults to timing of quarter turns only
+  MotorControl_moveendtime = MotorControl_movestarttime + MotorControl_AC_QUARTERTURN_TIME
+  ' Start the movement for A 
+  If MotorControl_a=1 Then         '  quarter turn upwards 
+    Motor.SchedulePowerForCount("1A", 100, 0, 90, 0, "true")
+  ElseIf MotorControl_a=3 Then     ' quarter turn downwards
+    Motor.SchedulePowerForCount("1A", -100, 0, 90, 0, "true")
+  Elseif MotorControl_a=2 Then      ' half turn
+    If MotorControl_c<>1 Then      ' default direction is upwards (ccw), if C is not upwards also
+      Motor.SchedulePowerForCount("1A", 100, 0, 2*90, 0, "true")
+    Else                           ' must move downwards (cw) if C was upwards to reduce overall tilt
+      Motor.SchedulePowerForCount("1A", -100, 0, 2*90, 0, "true")
+    Endif    
+    MotorControl_moveendtime = MotorControl_movestarttime + MotorControl_AC_HALFTURN_TIME
+  Endif
+  ' Start the movement for C
+  If MotorControl_c=1 Then         '  quarter turn upwards 
+    Motor.SchedulePowerForCount("1C", -100, 0, 90, 0, "true")
+  ElseIf MotorControl_c=3 Then     ' quarter turn downwards
+    Motor.SchedulePowerForCount("1C", 100, 0, 90, 0, "true")
+  Elseif MotorControl_c=2 Then      ' half turn
+    If MotorControl_a<>3 Then      ' default direction is downwards (ccw), if a is not downwards also
+      Motor.SchedulePowerForCount("1C", 100, 0, 2*90, 0, "true")
+    Else                           ' must move upwards (cw) if a was downwards to reduce overall tilt
+      Motor.SchedulePowerForCount("1C", -100, 0, 2*90, 0, "true")
+    Endif    
+    MotorControl_moveendtime = MotorControl_movestarttime + MotorControl_AC_HALFTURN_TIME
+  Endif  
+  ' check if must give penalty for two-sided move
+  If MotorControl_a=2 And MotorControl_c=2 Then
+    MotorControl_moveendtime = MotorControl_moveendtime + MotorControl_AC_TWOSIDES_PENALTY
+  ElseIf (MotorControl_a=1 Or MotorControl_a=3) And (MotorControl_c=1 Or MotorControl_c=3) Then
+    MotorControl_moveendtime = MotorControl_moveendtime + MotorControl_AC_TWOSIDES_PENALTY
+  Endif
+  ' memorize that this was the last axis that was moved
+  MotorControl_lastusedaxis=0  
+EndSub
+
+' Subprogram to turn faces on B-D axis  (axis 1)
+Sub MotorControl_MoveBD
+  ' when moving on same axis, give prevous move more time
+  If MotorControl_lastusedaxis=1 Then  
+    MotorControl_moveendtime = MotorControl_moveendtime + 200
+  Endif  
+  ' wait until previous turn has progressed far enough  (considering transmission time)
+  While EV3.Time < MotorControl_moveendtime - MotorControl_DAISY_TRANSMISSION_OVERHEAD
+  EndWhile  
+  ' Memorize when the current move started  (considering transmission time)
+  MotorControl_movestarttime = EV3.Time + MotorControl_DAISY_TRANSMISSION_OVERHEAD  
+  ' End-Time defaults to timing of quarter turns only
+  MotorControl_moveendtime = MotorControl_movestarttime + MotorControl_BD_QUARTERTURN_TIME
+  ' Start the movement for B 
+  If MotorControl_b=1 Then         '  quarter turn right
+    Motor.SchedulePowerForCount("2AB", 100, 0, 54, 0, "true")
+  ElseIf MotorControl_b=3 Then     ' quarter turn left
+    Motor.SchedulePowerForCount("2AB", -100, 0, 54, 0, "true")
+  Elseif MotorControl_b=2 Then      ' half turn
+    If MotorControl_d<>1 Then      ' default direction is right (ccw), if D is not right also
+      Motor.SchedulePowerForCount("2AB", 100, 0, 2*54, 0, "true")
+    Else                           ' must move left (cw) if D was right to reduce overall tilt
+      Motor.SchedulePowerForCount("2AB", -100, 0, 2*54, 0, "true")
+    Endif    
+    MotorControl_moveendtime = MotorControl_movestarttime + MotorControl_BD_HALFTURN_TIME
+  Endif
+  ' Start the movement for D
+  If MotorControl_d=1 Then         '  quarter turn right
+    Motor.SchedulePowerForCount("2CD", -100, 0, 54, 0, "true")
+  ElseIf MotorControl_d=3 Then     ' quarter turn left
+    Motor.SchedulePowerForCount("2CD", 100, 0, 54, 0, "true")
+  Elseif MotorControl_d=2 Then      ' half turn
+    If MotorControl_b<>3 Then      ' default direction is left (ccw), if b is not left also
+      Motor.SchedulePowerForCount("2CD", 100, 0, 2*54, 0, "true")
+    Else                           ' must move upwards (cw) if a was downwards to reduce overall tilt
+      Motor.SchedulePowerForCount("2CD", -100, 0, 2*54, 0, "true")
+    Endif    
+    MotorControl_moveendtime = MotorControl_movestarttime + MotorControl_BD_HALFTURN_TIME
+  Endif  
+  ' check if must give penalty for two-sided move
+  If MotorControl_b=2 And MotorControl_d=2 Then
+    MotorControl_moveendtime = MotorControl_moveendtime + MotorControl_BD_TWOSIDES_PENALTY
+  ElseIf (MotorControl_b=1 Or MotorControl_b=3) And (MotorControl_d=1 Or MotorControl_d=3) Then
+    MotorControl_moveendtime = MotorControl_moveendtime + MotorControl_BD_TWOSIDES_PENALTY
+  Endif  
+  ' memorize that this was the last axis that was moved
+  MotorControl_lastusedaxis=1  
+EndSub
+
+' Subprogram to turn face on E axis  (axis 2)
+Sub MotorControl_MoveE  
+  ' when moving on same axis, give prevous move more time 
+  If MotorControl_lastusedaxis=2 Then  
+    MotorControl_moveendtime = MotorControl_moveendtime + 200
+  Endif  
+  ' wait until previous turn has progressed far enough 
+  While EV3.Time < MotorControl_moveendtime
+  EndWhile
+  ' Memorize when the current move started  (considering transmission time)
+  MotorControl_movestarttime = EV3.Time
+  ' End-Time defaults to timing of quarter turns only
+  MotorControl_moveendtime = MotorControl_movestarttime + MotorControl_E_QUARTERTURN_TIME
+
+  ' Start the movement for E 
+  If MotorControl_e=1 Then         '  quarter turn clockwise
+    Motor.SchedulePowerForCount("1BD", -100, 0, 54, 0, "true")
+  ElseIf MotorControl_e=3 Then     ' quarter turn counter clockwise
+    Motor.SchedulePowerForCount("1BD", 100, 0, 54, 0, "true")
+  Elseif MotorControl_e=2 Then      ' half turn clockwise
+    Motor.SchedulePowerForCount("1BD", -100, 0, 2*54, 0, "true")
+    MotorControl_moveendtime = MotorControl_movestarttime + MotorControl_E_HALFTURN_TIME
+  Endif
+
+  ' memorize that this was the last axis that was moved
+  MotorControl_lastusedaxis=2        
+EndSub
+
+' ENDLIBRARY:  MotorControl ---------------------------------------------------------
+    
+    
+' Test main program   - simulate movements for a a full solve
+MotorControl_Init()
+
+' 324747144:2 AdJ1IgLabFhA2CbDjMb2K         no clash:  AdJ1IgLcFhA2CbDjMb2K 
+' 541173378:2 Dg1eAdCmI12Fh2BhDj2L2          no clash: Dg1eAdCmI3Fh2BhDj2L2
+' 199705743:2 kA1bL2a1G2L2DbC2NhL2C        no clash: kA1bL2a1G2L2DbC2NhL2C
+' 251857082:0 E1fC3gKc1A2Cj2Cj2FhAhD        no clash:  kA1bL2a1G2L2DbC2NhL2C
+' 142462416:2 3DcMnOb3dFbD2bAhD2jL         no clash:  oCk3GcK1d2D2hMh2D2L2jM
+' 587789532:3 oCk3GcK1d2D2hMh2D2L2jM
+' 23962843:1 G1bGfFa12jIb2C2jBh2C                 no clash:  G1bGfFa3jIb2C2jBh2C
+' 450899188:3 InM3gAd1CbNhEjAj2bG
+' 265998603:3 K3gK1oL1eMhLbC2hA2Gb2Ab
+' 31130161:1 C3jM1m1B1NbD2AhD2jCbGh
+sequence = "AdJ1IgLcFhA2CbDjMb2K"
+
+
+'  test scan run
+'MotorControl_a = 2
+'MotorControl_c = 2
+'MotorControl_MoveAC()
+'MotorControl_b = 2
+'MotorControl_d = 2
+'MotorControl_MoveBD()
+'MotorControl_a = 2
+'MotorControl_c = 2
+'MotorControl_MoveAC()
+'MotorControl_b = 2
+'MotorControl_d = 2
+'MotorControl_MoveBD()
+
+Program.Delay(150)
+MotorControl_lastusedaxis = -1
+MotorControl_moveendtime = -100000   
+
+start = EV3.Time
+
+' test solve run
+for i=1 to Text.GetLength(sequence)
+  x = Text.GetCharacterCode(Text.GetSubText(sequence, i,1))     ' extract action code
+  
+  If x>=49 And x<=51 Then        '    "1"   -  "3"
+    MotorControl_e = x-48
+    MotorControl_MoveE()
+  ElseIf x>=65 And x<=79 Then    '    "A" - "O"
+    MotorControl_a = Math.Floor((x-64) / 4)
+    MotorControl_c = Math.Remainder(x-64, 4)
+    MotorControl_MoveAC()
+  Elseif x>=97 And x<=111 Then   '   "a" - "o"
+    MotorControl_b = Math.Floor((x-96) / 4)
+    MotorControl_d = Math.Remainder(x-96, 4)
+    MotorControl_MoveBD()
+  Else
+    Program.Delay(1000)    ' error condition
+  EndIf     
+Endfor
+
+' fair end time: after last face is in place
+While EV3.Time < MotorControl_moveendtime 
+EndWhile
+
+end = EV3.Time
+
+LCD.Clear()
+LCD.Write(40,40, (end-start))
+Program.Delay(5000)
+  
+ 

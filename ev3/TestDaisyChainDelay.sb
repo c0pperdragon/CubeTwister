@@ -1,0 +1,12 @@
+
+While "true"
+  While Sensor.ReadPercent(1)<50
+  EndWhile
+  
+  Motor.SchedulePowerForTime("D", -100, 0,100,0, "False")
+  Motor.SchedulePowerForTime("2D", -100, 0,100,0, "False")
+  
+  Program.Delay(500)
+EndWhile  
+  
+  

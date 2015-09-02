@@ -1,0 +1,1372 @@
+' Controler program for the Cube Twister  ( https://www.youtube.com/watch?v=s2tCAf6yYoo ) . 
+' This program serves as a proof that larger programs can be done with EV3Basic, even if there are no local 
+' variables or call parameters.  The individual parts of the program pass data in global variables only, so some
+' kind of naming convention is needed to avoid name clashed and to not get totally confused.
+' Here I will just prefix variables that are only used by one subroutine with the name of this subroutine. 
+' Also variables to pass data in and out of subroutines will be prefixed in this way. 
+' Short local variable names without prefix may be used, but after calling other subroutines,
+' these variables should be considered undefined. 
+' Global variables are explicitly assigned to initial values in main body of program. 
+' Everything besides variable initializers are put into subroutines, even the main program which will be explicitly
+' called after all initialization has happened.
+
+
+'Speed up access to numerical arrays (with the penality that programming errors will cause a program crash)
+'PRAGMA NOBOUNDSCHECK
+
+
+' ---------- SECTION: Motor Control ----------------------------------------------------------
+
+' Some motors of the model  are grouped together to form a stronger,
+' more accurate compound motor.  Throughout the program, these
+' compound motors are referenced in commends with the letter A,B,C,D,E.
+' When only one individual motor is meant, the daisy-chaining layer is prefixed
+' (e.g. 1.C)
+'  Motor A = 1.A
+'  Motor B = 2.A + 2.B
+'  Motor C = 1.C
+'  Motor D = 2.C + 2.D
+'  Motor E = 1.B + 1.D
+
+' Global constants and variables or internal use of  library  (with initializers)
+DAISY_TRANSMISSION_OVERHEAD = 1           ' minimum daisy chain transmission
+AC_QUARTERTURN_TIME = 78 +1                 
+AC_HALFTURN_TIME = 150 +1
+AC_TWOSIDES_PENALTY = 7                    
+BD_QUARTERTURN_TIME = 56 + 4              '  +transmission uncertainty
+BD_HALFTURN_TIME = 100 + 4                '  +transmission uncertainty
+BD_TWOSIDES_PENALTY = 5 
+E_QUARTERTURN_TIME = 56  +1
+E_HALFTURN_TIME = 100  +1
+
+' face move actions                                     
+Action_E1 = 1
+Action_E2 = 2
+Action_E3 = 3
+Action_A0C1 = 4
+Action_A0C2 = 5
+Action_A0C3 = 6
+Action_A1C0 = 7
+Action_A1C1 = 8
+Action_A1C2 = 9
+Action_A1C3 = 10
+Action_A2C0 = 11
+Action_A2C1 = 12
+Action_A2C2 = 13
+Action_A2C3 = 14
+Action_A3C0 = 15
+Action_A3C1 = 16
+Action_A3C2 = 17
+Action_A3C3 = 18
+Action_B0D1 = 19
+Action_B0D2 = 20
+Action_B0D3 = 21
+Action_B1D0 = 22
+Action_B1D1 = 23
+Action_B1D2 = 24
+Action_B1D3 = 25
+Action_B2D0 = 26
+Action_B2D1 = 27
+Action_B2D2 = 28
+Action_B2D3 = 29
+Action_B3D0 = 30
+Action_B3D1 = 31
+Action_B3D2 = 32
+Action_B3D3 = 33
+
+moveendtime = -100000   		' system time when current move is finshed
+lastusedaxis = -1               ' axis of currently running move 
+
+' Initialize Hardware for MotorControl
+' at end of init all motors are locked in place
+Sub InitMotors
+  ' align gears of single-controlled motors to fit the cube orientation
+  Motor.StartPower("AC", 5)
+  ' take up slack of compound motors E
+  Motor.StartPower("B",-4)  
+  Motor.StartPower("D",4)
+  ' take up slack of compound motors B and D
+  Motor.StartPower("2AC", 4)
+  Motor.StartPower("2BD", -4)
+  
+  Program.Delay(200)
+  
+  ' lock in place
+  Motor.SchedulePower("B", -50, 0,0,0, "true")
+  Motor.SchedulePower("D", 50, 0,0,0, "true")
+  Motor.SchedulePower("2AC",50, 0,0,0, "true")    
+  Motor.SchedulePower("2BD",-50, 0,0,0, "true")    
+  ' move single-controlled motors to 0 position and lock in place
+  Motor.SchedulePower("AC",-10,0,3,0,"true")   
+  
+  Program.Delay(200)
+EndSub
+
+' Subprogram to turn faces on A-C axis   (axis 0)
+MoveAC_a = 0    ' quarters to move A up
+MoveAC_c = 0    ' quarters to move C up
+Sub MoveAC
+  ' when moving on same axis, give prevous move more time
+  If lastusedaxis=0 Then  
+    moveendtime = moveendtime + 200
+  Endif  
+  ' wait until previous turn has progressed far enough
+  While EV3.Time < moveendtime
+  EndWhile
+  ' Memorize when the current move started 
+  MoveAC_movestarttime = EV3.Time 
+  ' End-Time defaults to timing of quarter turns only
+  moveendtime = MoveAC_movestarttime + AC_QUARTERTURN_TIME
+  ' Start the movement for A 
+  If MoveAC_a=1 Then         '  quarter turn upwards 
+    Motor.SchedulePower("1A", 100, 0, 90, 0, "true")
+  ElseIf MoveAC_a=3 Then     ' quarter turn downwards
+    Motor.SchedulePower("1A", -100, 0, 90, 0, "true")
+  Elseif MoveAC_a=2 Then      ' half turn
+    If MoveAC_c<>1 Then      ' default direction is upwards (ccw), if C is not upwards also
+      Motor.SchedulePower("1A", 100, 0, 2*90, 0, "true")
+    Else                           ' must move downwards (cw) if C was upwards to reduce overall tilt
+      Motor.SchedulePower("1A", -100, 0, 2*90, 0, "true")
+    Endif    
+    moveendtime = MoveAC_movestarttime + AC_HALFTURN_TIME
+  Endif
+  ' Start the movement for C
+  If MoveAC_c=1 Then         '  quarter turn upwards 
+    Motor.SchedulePower("1C", -100, 0, 90, 0, "true")
+  ElseIf MoveAC_c=3 Then     ' quarter turn downwards
+    Motor.SchedulePower("1C", 100, 0, 90, 0, "true")
+  Elseif MoveAC_c=2 Then      ' half turn
+    If MoveAC_a<>3 Then      ' default direction is downwards (ccw), if a is not downwards also
+      Motor.SchedulePower("1C", 100, 0, 2*90, 0, "true")
+    Else                           ' must move upwards (cw) if a was downwards to reduce overall tilt
+      Motor.SchedulePower("1C", -100, 0, 2*90, 0, "true")
+    Endif    
+    moveendtime = MoveAC_movestarttime + AC_HALFTURN_TIME
+  Endif  
+  ' check if must give penalty for two-sided move
+  If MoveAC_a=2 And MoveAC_c=2 Then
+    moveendtime = moveendtime + AC_TWOSIDES_PENALTY
+  ElseIf (MoveAC_a=1 Or MoveAC_a=3) And (MoveAC_c=1 Or MoveAC_c=3) Then
+    moveendtime = moveendtime + AC_TWOSIDES_PENALTY
+  Endif
+  ' memorize that this was the last axis that was moved
+  lastusedaxis=0  
+EndSub
+
+' Subprogram to turn faces on B-D axis  (axis 1)
+MoveBD_b = 0     ' quarters to move B right
+MoveBD_d = 0     ' quarters to move D right
+Sub MoveBD
+  ' when moving on same axis, give prevous move more time
+  If lastusedaxis=1 Then  
+    moveendtime = moveendtime + 200
+  Endif  
+  ' wait until previous turn has progressed far enough  (considering transmission time)
+  While EV3.Time < moveendtime - DAISY_TRANSMISSION_OVERHEAD
+  EndWhile  
+  ' Memorize when the current move started  (considering transmission time)
+  MoveBD_movestarttime = EV3.Time + DAISY_TRANSMISSION_OVERHEAD  
+  ' End-Time defaults to timing of quarter turns only
+  moveendtime = MoveBD_movestarttime + BD_QUARTERTURN_TIME
+  ' Start the movement for B 
+  If MoveBD_b=1 Then         '  quarter turn right
+    Motor.SchedulePower("2AB", 100, 0, 54, 0, "true")
+  ElseIf MoveBD_b=3 Then     ' quarter turn left
+    Motor.SchedulePower("2AB", -100, 0, 54, 0, "true")
+  Elseif MoveBD_b=2 Then      ' half turn
+    If MoveBD_d<>1 Then      ' default direction is right (ccw), if D is not right also
+      Motor.SchedulePower("2AB", 100, 0, 2*54, 0, "true")
+    Else                           ' must move left (cw) if D was right to reduce overall tilt
+      Motor.SchedulePower("2AB", -100, 0, 2*54, 0, "true")
+    Endif    
+    moveendtime = MoveBD_movestarttime + BD_HALFTURN_TIME
+  Endif
+  ' Start the movement for D
+  If MoveBD_d=1 Then         '  quarter turn right
+    Motor.SchedulePower("2CD", -100, 0, 54, 0, "true")
+  ElseIf MoveBD_d=3 Then     ' quarter turn left
+    Motor.SchedulePower("2CD", 100, 0, 54, 0, "true")
+  Elseif MoveBD_d=2 Then      ' half turn
+    If MoveBD_b<>3 Then      ' default direction is left (ccw), if b is not left also
+      Motor.SchedulePower("2CD", 100, 0, 2*54, 0, "true")
+    Else                           ' must move upwards (cw) if a was downwards to reduce overall tilt
+      Motor.SchedulePower("2CD", -100, 0, 2*54, 0, "true")
+    Endif    
+    moveendtime = MoveBD_movestarttime + BD_HALFTURN_TIME
+  Endif  
+  ' check if must give penalty for two-sided move
+  If MoveBD_b=2 And MoveBD_d=2 Then
+    moveendtime = moveendtime + BD_TWOSIDES_PENALTY
+  ElseIf (MoveBD_b=1 Or MoveBD_b=3) And (MoveBD_d=1 Or MoveBD_d=3) Then
+    moveendtime = moveendtime + BD_TWOSIDES_PENALTY
+  Endif  
+  ' memorize that this was the last axis that was moved
+  lastusedaxis=1  
+EndSub
+
+' Subprogram to turn face on E axis  (axis 2)
+MoveE_e = 0        ' quarters to move E clockwise
+Sub MoveE   
+  ' when moving on same axis, give prevous move more time 
+  If lastusedaxis=2 Then  
+    moveendtime = moveendtime + 200
+  Endif  
+  ' wait until previous turn has progressed far enough 
+  While EV3.Time < moveendtime
+  EndWhile
+  ' Memorize when the current move started  (considering transmission time)
+  MoveE_movestarttime = EV3.Time
+  ' End-Time defaults to timing of quarter turns only
+  moveendtime = MoveE_movestarttime + E_QUARTERTURN_TIME
+
+  ' Start the movement for E 
+  If MoveE_e=1 Then         '  quarter turn clockwise
+    Motor.SchedulePower("1BD", -100, 0, 54, 0, "true")
+  ElseIf MoveE_e=3 Then     ' quarter turn counter clockwise
+    Motor.SchedulePower("1BD", 100, 0, 54, 0, "true")
+  Elseif MoveE_e=2 Then      ' half turn clockwise
+    Motor.SchedulePower("1BD", -100, 0, 2*54, 0, "true")
+    moveendtime = MoveE_movestarttime + E_HALFTURN_TIME
+  Endif
+
+  ' memorize that this was the last axis that was moved
+  lastusedaxis=2        
+EndSub
+
+' Subprogram to perfrom one action on the physical cube
+MotorAction_action = 0
+Sub MotorAction
+  If MotorAction_action>=Action_E1 And MotorAction_action<=Action_E3 Then
+    MoveE_e = MotorAction_action-(Action_E1-1)
+    MoveE()
+  ElseIf MotorAction_action>=Action_A0C1 And MotorAction_action<=Action_A3C3 Then
+    MoveAC_a = Math.Floor((MotorAction_action-(Action_A0C1-1)) / 4)    
+    MoveAC_c = Math.Remainder(MotorAction_action-(Action_A0C1-1),4)    
+    MoveAC()
+  ElseIf MotorAction_action>=Action_B0D1 And MotorAction_action<=Action_B3D3 Then
+    MoveBD_b = Math.Floor((MotorAction_action-(Action_B0D1-1)) / 4)    
+    MoveBD_d = Math.Remainder(MotorAction_action-(Action_B0D1-1),4)    
+    MoveBD()
+  EndIf
+EndSub
+
+' Wait for the last motor movement to be finished
+Sub WaitForMotorFinished
+  While EV3.Time < moveendtime
+  EndWhile  
+EndSub
+
+
+' ---------- SECTION: Color Scanner --------------------------------------------------------------
+
+' letters for every color to be used when showing scan result
+COLORLETTERS[0] = "W"
+COLORLETTERS[1] = "R"
+COLORLETTERS[2] = "G"
+COLORLETTERS[3] = "B"
+COLORLETTERS[4] = "Y"
+COLORLETTERS[5] = "O"
+
+' I2C commands to be sent to scanner
+CMD_STARTSCAN0 = Vector.Init(1,128)
+CMD_STARTSCAN1 = Vector.Init(1,129)
+CMD_STARTSCAN2 = Vector.Init(1,130)
+CMD_NOTHING = Vector.Init(1,0)
+
+' to hold the scan result
+colors = Vector.Init(54,-1)
+
+' temporary result buffer
+col0 = Vector.Init(20,0)
+col1 = Vector.Init(20,0)
+col2 = Vector.Init(8,0)
+
+' Perform a full scan of the cube with 8 color sensor in parallel and store results in "color"
+Sub FullScan
+  ' initialize center facelets with correct colors (can not be scanned)
+  colors[4]  = 5
+  colors[13] = 2
+  colors[22] = 0
+  colors[31] = 3
+  colors[40] = 4
+  colors[49] = 1
+  
+  ' turn of unused motors to avoid elecotromagnetic noise
+  Motor.SchedulePower("ABCD", 0, 0,0,0, "false")
+  
+  ' time zero for first scan
+  scanstarttime = EV3.Time
+
+  ' start first (fast) movement and scan first 20 faces
+  EV3.QueueNextCommand()
+  Motor.SchedulePower("2ABCD", 100, 0,30,0, "false")
+  i2cdummy = Sensor.CommunicateI2C(2,4, 1,1, CMD_STARTSCAN0)
+
+  ' wait until scanning is surely  finished and then turn on motor regulation to reach target
+  While EV3.Time < scanstarttime+65
+  EndWhile
+  Motor.SchedulePower("2ABCD", 100, 0,20,0, "true")
+  
+  ' read out already collected color readings
+  col0 = Sensor.CommunicateI2C(2,4, 0,20, CMD_NOTHING)
+   
+  '  wait until first motors have nearly reached their target
+  While EV3.Time < scanstarttime+90
+  EndWhile
+  
+  ' time zero for second scan
+  scanstarttime = EV3.Time
+    
+  ' do second (slow) movement and scan next 20 faces
+  EV3.QueueNextCommand()
+  Motor.SchedulePower("AC", 100, 0,50,0, "false")
+  i2cdummy = Sensor.CommunicateI2C(2,4, 1,1,CMD_STARTSCAN1)
+  
+  ' switch off PWN of first motor (and correct target) and adjust internal position counter
+  While EV3.Time < scanstarttime+20
+  EndWhile  
+  Motor.SchedulePower("2ABCD", 100, 0,4,0, "false")  
+
+  ' continue to let second motor run (uncontrolled) until scan is finished
+  While EV3.Time < scanstarttime + 85
+  EndWhile
+  ' move to correct end position
+  Motor.SchedulePower("AC", 100, 0,36,0, "true")  
+  
+  ' read out collected sensor data
+  col1 = Sensor.CommunicateI2C(2,4, 0,20, CMD_NOTHING)
+
+  ' here we have some time to distribute the colors to their correct slots
+  colors[48] = col0[0]
+  colors[33] = col0[1]
+  colors[26] = col0[2]
+   colors[16] = col0[3]
+   colors[47] = col0[4]
+  colors[10] = col0[5]
+  colors[2] = col0[6]
+   colors[3] = col0[7]
+   colors[29] = col0[8]
+   colors[36] = col0[9]
+  colors[50] = col0[10]
+  colors[15] = col0[11]
+  colors[44] = col0[12]
+   colors[34] = col0[13]
+   colors[51] = col0[14]
+  colors[28] = col0[15]
+  colors[6] = col0[16]
+   colors[5] = col0[17]
+   colors[11] = col0[18]
+   colors[18] = col0[19]
+ 
+  colors[25] = col1[0]
+  colors[24] = col1[1]
+   colors[46] = col1[2]
+   colors[45] = col1[3]
+   colors[17] = col1[4]
+  colors[1] = col1[5]
+  colors[0] = col1[6]
+  colors[9] = col1[7]
+   colors[37] = col1[8]
+   colors[38] = col1[9]
+  colors[43] = col1[10]
+  colors[42] = col1[11]
+   colors[52] = col1[12]
+   colors[53] = col1[13]
+   colors[35] = col1[14]
+  colors[7] = col1[15]
+  colors[8] = col1[16]
+  colors[27] = col1[17]
+   colors[19] = col1[18]
+   colors[20] = col1[19]
+    
+  ' wait until second motor is approximately at correct end position
+  While EV3.Time < scanstarttime + 130
+  EndWhile  
+  ' turn off PWN control of second motor and adjust internal position ocunter
+  Motor.SchedulePower("AC", 20, 0,0,0, "false")
+  
+  ' do a non-moving scan of the remaining 8 faces
+  i2cdummy = Sensor.CommunicateI2C(2,4, 1,1, CMD_STARTSCAN2)
+  col2 = Sensor.CommunicateI2C(2,4, 0,8, CMD_NOTHING)
+  
+  ' transfer colors to appropriate slots
+  colors[21] = col2[0]
+  colors[14] = col2[1]
+  colors[12] = col2[2]
+  colors[41] = col2[3]
+  colors[39] = col2[4]
+  colors[32] = col2[5]
+  colors[30] = col2[6]
+  colors[23] = col2[7]
+  
+  ' lock everything in place
+  Motor.SchedulePower("AC",  100, 0,4,0, "true")
+  Motor.SchedulePower("BD",  100, 0,0,0, "true")
+  Motor.SchedulePower("2ABCD", 100, 0,0,0, "true")
+EndSub
+
+' For debug purposes: Write content of "color" array do LCD
+Sub WriteColors
+  LCD.StopUpdate()
+  LCD.Clear()
+  histogram = Vector.Init(6,0)
+  edgehistogram = Vector.Init(6,0)
+  For f=0 to 5
+    fx = 1
+    fy = Math.Floor((f+3)/4)
+    If fy=1 Then
+      fx = f-1
+    EndIf
+    For y=0 To 2
+      For x=0 to 2
+        c = colors[f*9+y*3+x]
+        If c>=0 And c<6 Then
+          LCD.Write(fx*42+x*13,fy*42+y*13, COLORLETTERS[c])
+          histogram[c] = histogram[c] + 1
+          If (x=1 or y=1) and x*y<>1 Then
+            edgehistogram[c] = edgehistogram[c] + 1 
+          EndIf
+        EndIf    
+      EndFor
+    EndFor
+  EndFor
+  For c=0 to 5
+    LCD.Write(84+c*16,0, histogram[c])
+    LCD.Write(84+c*16,13, edgehistogram[c])
+  EndFor
+  LCD.Update()
+EndSub
+
+
+' ----------- SECTION: Data model of the cube --------------------------------------------------------
+
+' Global constants and variables for cube model (with initializers)
+' corner cubies
+ULF = 0
+URF = 1
+URB = 2
+ULB = 3
+DLF = 4
+DRF = 5
+DRB = 6
+DLB = 7
+' edge cubies
+UL = 0
+UF = 1
+UR = 2
+UB = 3
+DL = 4
+DF = 5
+DR = 6
+DB = 7
+LF = 8
+RF = 9
+RB = 10
+LB = 11
+' fast access to the value of fact(x)    - will be computed at program start
+FACTORIAL = Vector.Init(12,1)
+For i=1 to 12-1
+  FACTORIAL[i] = FACTORIAL[i-1] * i
+EndFor
+
+' Current state of the cube
+cornercubies = Vector.Init(8,0)
+cornertwists = Vector.Init(8,0)
+edgecubies   = Vector.Init(12,0)
+edgeflips    = Vector.Init(12,0)
+
+
+' create ordered cube
+Sub InitCube
+    For i=0 To 8-1
+      cornercubies[i] = i
+      cornertwists[i] = 0
+    EndFor            
+    For i=0 To 12-1
+      edgecubies[i] = i
+      edgeflips[i] = 0
+    EndFor
+EndSub
+
+' create random cube
+Sub MixCube
+  InitCube()
+  For iii=0 To 100
+    CubeAction_action = Math.GetRandomNumber(33)
+    CubeAction()
+  EndFor  
+EndSub
+
+' Utility subroutine to compute an index value for a given permutation
+ComputePermutationIndex_permutation = Vector.Init(0,0)   ' the permutation to check (will be destroyed!)
+ComputePermutationIndex_size = 0                         ' how many elements to consider
+' Returns:  ComputePermutationIndex_index        the computed index value
+'          ComputePermutationIndex_parity        0:even permutation,  1:odd permutation
+Sub ComputePermutationIndex
+  ComputePermutationIndex_index = 0
+  ComputePermutationIndex_parity = 0
+  
+  While ComputePermutationIndex_size>2
+    lm1 = ComputePermutationIndex_size-1
+    ' when the last element is already in place, the permutation index is just the index of the sub-list    
+    If ComputePermutationIndex_permutation[lm1] = lm1 Then
+      ComputePermutationIndex_size = lm1
+    Else
+      ' otherwise must find the element and swap it with the currently last one, then calculate permutation index of sub-list 
+      idx = -1
+      For i=0 To lm1-1 
+        If ComputePermutationIndex_permutation[i] = lm1 Then
+          idx = i
+        EndIf
+      EndFor
+      ' could not find the element - can not be valid permutation      
+      If idx<0 Then
+        ComputePermutationIndex_index = -1
+        Goto over
+      EndIf
+      ' bring the element from last position to the vacant place
+      ComputePermutationIndex_permutation[idx] = ComputePermutationIndex_permutation[lm1]    
+      '  the combinations that are reserved for the other possibilities
+      ComputePermutationIndex_index = ComputePermutationIndex_index + (lm1-idx) * FACTORIAL[lm1]
+      ' continue calculation with shorter sequence and with swapped parity
+      ComputePermutationIndex_size = lm1
+      ComputePermutationIndex_parity = 1- ComputePermutationIndex_parity
+    EndIf    
+  EndWhile      
+  ' check permutation of last 2 elements (less elements do not work with the Sub)
+  If ComputePermutationIndex_permutation[0]=0 And ComputePermutationIndex_permutation[1]=1 Then
+    ComputePermutationIndex_index = ComputePermutationIndex_index + ComputePermutationIndex_parity
+  ElseIf ComputePermutationIndex_permutation[0]=1 And ComputePermutationIndex_permutation[1]=0 Then
+    ComputePermutationIndex_parity = 1-ComputePermutationIndex_parity
+    ComputePermutationIndex_index = ComputePermutationIndex_index + ComputePermutationIndex_parity
+  Else
+    ComputePermutationIndex_index = -1
+  EndIf
+  over:  
+EndSub
+
+' Compute checksums for the current state of the cube
+' Returns: ComputeCheckSums_cornertwistsum
+'          ComputeCheckSums_edgeflipsum
+'          ComputeCheckSums_permutationparity
+Sub ComputeCheckSums
+  ComputeCheckSums_cornertwistsum = 0  
+  ComputeCheckSums_edgeflipsum = 0  
+  ComputeCheckSums_permutationparity = 0    
+  
+  For i=0 To 8-1 '  corner twists must add up to a multiple of 3
+    ComputeCheckSums_cornertwistsum = Math.Remainder(ComputeCheckSums_cornertwistsum + cornertwists[i],3)
+  EndFor            
+  For i=0 To 12-1  '  edge flips must add up to a multiple of 2
+    ComputeCheckSums_edgeflipsum = Math.Remainder(ComputeCheckSums_edgeflipsum + edgeflips[i],2)
+  EndFor
+  ' compute permutation perity of whole cube  (edges and corners)
+  ComputePermutationIndex_permutation = edgecubies
+  ComputePermutationIndex_size = 12
+  ComputePermutationIndex()  
+  ComputeCheckSums_permutationparity = ComputePermutationIndex_parity  
+  ComputePermutationIndex_permutation = cornercubies
+  ComputePermutationIndex_size = 8
+  ComputePermutationIndex()  
+  ComputeCheckSums_permutationparity = Math.Remainder(ComputeCheckSums_permutationparity+ComputePermutationIndex_parity, 2)  
+EndSub
+
+' Compute "fingerprint" for the corner twists configuration
+' Returns: ComputeCornerTwistIndex_index
+Sub ComputeCornerTwistIndex
+  ComputeCornerTwistIndex_index = 0
+  For i=6 To 0 Step -1   '  do not calculate corner 7 - is redundant for correct cube
+      ComputeCornerTwistIndex_index = ComputeCornerTwistIndex_index * 3 + cornertwists[i]
+  EndFor            
+EndSub
+
+' Compute "fingerprint" for the edge flip configuration
+' Returns: ComputeEdgeFlipIndex_index
+Sub ComputeEdgeFlipIndex
+  ComputeEdgeFlipIndex_index = 0        
+  For i=10 To 0 Step -1    ' do not calculate edge 11 - is redundant for correct cube
+      ComputeEdgeFlipIndex_index = ComputeEdgeFlipIndex_index*2 + edgeflips[i]
+  EndFor            
+EndSub
+
+' Compute "fingerprint" for the distribution of the edges of the middle slice
+' Returns: ComputeMiddleEdgeDistributionIndex_index
+Sub ComputeMiddleEdgeDistributionIndex 
+  ComputeMiddleEdgeDistributionIndex_index = 0  
+  ' shortcut to directly detect index 0 
+  If edgecubies[8]>=8 And edgecubies[9]>=8 And edgecubies[10]>=8 And edgecubies[11]>=8 Then
+    ' no more action necessary
+  Else  
+    len = 12
+    numselect = 4      
+    ' compute as long as having more choices
+    While len>1 And numselect>=1 
+      '  when relevant element is not at start of sequence, determine index based on smaller array
+      If edgecubies[11-(len-1)]<8 Then    
+        len = len -1
+      Else
+        n = len-1      
+        k = numselect
+        n_over_k = 1
+        For i=n To (n - (k - 1)) Step -1                    
+          n_over_k = n_over_k * i
+        EndFor
+        For i=1 To k
+          n_over_k = n_over_k / i
+        EndFor  
+        '  must increase index by all possibilities where element was not at start of sequence
+        ComputeMiddleEdgeDistributionIndex_index = ComputeMiddleEdgeDistributionIndex_index + n_over_k
+        ' now search for fewer relevant elements in smaller sequence
+        len = len-1
+        numselect = numselect-1
+      EndIf    
+    EndWhile
+  EndIf
+EndSub  
+
+' Compute a fingerprint for the permutation of the corners
+' Returns: ComputeCornerPermutationIndex_index
+Sub ComputeCornerPermutationIndex
+  ComputePermutationIndex_permutation = cornercubies
+  ComputePermutationIndex_size = 8
+  ComputePermutationIndex()  
+  ComputeCornerPermutationIndex_index = ComputePermutationIndex_index
+EndSub
+
+' Compute a fingerprint for the permutation of the edges not in the middle slice
+' Returns: ComputeOuterEdgePermutationIndex_index
+Sub ComputeOuterEdgePermutationIndex
+  ComputePermutationIndex_permutation = edgecubies
+  ComputePermutationIndex_size = 8
+  ComputePermutationIndex()  
+  ComputeOuterEdgePermutationIndex_index = ComputePermutationIndex_index
+EndSub
+
+' Compute a fingerprint for the permutation of the edges in the middle slice
+' Returns: ComputeMiddleEdgePermutationIndex_index
+Sub ComputeMiddleEdgePermutationIndex
+  ComputePermutationIndex_permutation[0] = edgecubies[8]-8
+  ComputePermutationIndex_permutation[1] = edgecubies[9]-8
+  ComputePermutationIndex_permutation[2] = edgecubies[10]-8
+  ComputePermutationIndex_permutation[3] = edgecubies[11]-8  
+  ComputePermutationIndex_size = 4
+  ComputePermutationIndex()  
+  ComputeMiddleEdgePermutationIndex_index = ComputePermutationIndex_index
+EndSub
+
+
+' For Debug: Write the current state of the cube to the LCD
+Sub WriteCube
+  LCD.StopUpdate()
+  LCD.Clear()
+
+  ComputeCornerTwistIndex()
+  ComputeCornerPermutationIndex()
+  ComputeEdgeFlipIndex()
+  ComputeMiddleEdgeDistributionIndex()
+    
+  For i=0 To 8-1
+    LCD.Write(i*16,0, cornertwists[i])
+  EndFor
+  LCD.Write(0,16, "(" + ComputeCornerTwistIndex_index + ") ")
+  For i=0 To 8-1          
+     LCD.Write(i*16,32, cornercubies[i])
+  EndFor
+  LCD.Write(0,48, "(" + ComputeCornerPermutationIndex_index+")")
+
+  For i=0 To 12-1       
+    LCD.Write(i*16,64, edgeflips[i])
+  EndFor        
+  LCD.Write(0,80, "(" + ComputeEdgeFlipIndex_index + ") ")
+
+  For i=0 To 12-1        
+    LCD.Write(i*16,96, Text.GetCharacter(65 + (edgecubies[i])))
+  EndFor            
+  If ComputeMiddleEdgeDistributionIndex_index<>0 Then            
+    LCD.Write(0,112, "(" +  ComputeMiddleEdgeDistributionIndex_index + ")")
+  Else
+    ComputeOuterEdgePermutationIndex()
+    ComputeMiddleEdgePermutationIndex()
+    LCD.Write(0,112, "(" + ComputeOuterEdgePermutationIndex_index + ":" + ComputeMiddleEdgePermutationIndex_index+ ")")
+  EndIf  
+  
+  LCD.Update()
+EndSub
+
+Sub TwistARight
+                         dummy = cornercubies[ULB]
+    cornercubies[ULB] = cornercubies[URB]
+    cornercubies[URB] = cornercubies[URF]
+    cornercubies[URF] = cornercubies[ULF]
+    cornercubies[ULF] = dummy
+                         dummy = cornertwists[ULB]
+    cornertwists[ULB] = cornertwists[URB]
+    cornertwists[URB] = cornertwists[URF]
+    cornertwists[URF] = cornertwists[ULF]
+    cornertwists[ULF] = dummy
+                      dummy = edgecubies[UL]
+    edgecubies[UL] = edgecubies[UB]
+    edgecubies[UB] = edgecubies[UR]
+    edgecubies[UR] = edgecubies[UF]
+    edgecubies[UF] = dummy
+                     dummy = edgeflips[UL]
+    edgeflips[UL] = edgeflips[UB]
+    edgeflips[UB] = edgeflips[UR]
+    edgeflips[UR] = edgeflips[UF]
+    edgeflips[UF] = dummy
+EndSub            
+    
+Sub TwistCRight
+                         dummy = cornercubies[DLB]
+    cornercubies[DLB] = cornercubies[DRB]
+    cornercubies[DRB] = cornercubies[DRF]
+    cornercubies[DRF] = cornercubies[DLF]
+    cornercubies[DLF] = dummy
+                         dummy = cornertwists[DLB]
+    cornertwists[DLB] = cornertwists[DRB]
+    cornertwists[DRB] = cornertwists[DRF]
+    cornertwists[DRF] = cornertwists[DLF]
+    cornertwists[DLF] = dummy
+                      dummy = edgecubies[DL]
+    edgecubies[DL] = edgecubies[DB]
+    edgecubies[DB] = edgecubies[DR]
+    edgecubies[DR] = edgecubies[DF]
+    edgecubies[DF] = dummy
+                     dummy = edgeflips[DL]
+    edgeflips[DL] = edgeflips[DB]
+    edgeflips[DB] = edgeflips[DR]
+    edgeflips[DR] = edgeflips[DF]
+    edgeflips[DF] = dummy
+EndSub            
+
+Sub TwistBUp
+                         dummy = cornercubies[DRB]
+    cornercubies[DRB] = cornercubies[URB]
+    cornercubies[URB] = cornercubies[URF]
+    cornercubies[URF] = cornercubies[DRF]
+    cornercubies[DRF] = dummy
+                         dummy = Math.Remainder(cornertwists[DRB] + 1, 3)
+    cornertwists[DRB] = Math.Remainder(cornertwists[URB] + 2, 3)
+    cornertwists[URB] = Math.Remainder(cornertwists[URF] + 1, 3)
+    cornertwists[URF] = Math.Remainder(cornertwists[DRF] + 2, 3)
+    cornertwists[DRF] = dummy
+                      dummy = edgecubies[DR]
+    edgecubies[DR] = edgecubies[RB]
+    edgecubies[RB] = edgecubies[UR]
+    edgecubies[UR] = edgecubies[RF]
+    edgecubies[RF] = dummy
+                     dummy = 1 - edgeflips[DR]
+    edgeflips[DR] = 1 - edgeflips[RB]
+    edgeflips[RB] = 1 - edgeflips[UR]
+    edgeflips[UR] = 1 - edgeflips[RF]
+    edgeflips[RF] = dummy
+EndSub
+    
+Sub TwistDUp
+                         dummy = cornercubies[DLB]
+    cornercubies[DLB] = cornercubies[ULB]
+    cornercubies[ULB] = cornercubies[ULF]
+    cornercubies[ULF] = cornercubies[DLF]
+    cornercubies[DLF] = dummy
+                         dummy = Math.Remainder(cornertwists[DLB] + 2, 3)
+    cornertwists[DLB] = Math.Remainder(cornertwists[ULB] + 1, 3)
+    cornertwists[ULB] = Math.Remainder(cornertwists[ULF] + 2, 3)
+    cornertwists[ULF] = Math.Remainder(cornertwists[DLF] + 1, 3)
+    cornertwists[DLF] = dummy
+                      dummy = edgecubies[DL]
+    edgecubies[DL] = edgecubies[LB]
+    edgecubies[LB] = edgecubies[UL]
+    edgecubies[UL] = edgecubies[LF]
+    edgecubies[LF] = dummy
+                     dummy = 1 - edgeflips[DL]
+    edgeflips[DL] = 1 - edgeflips[LB]
+    edgeflips[LB] = 1 - edgeflips[UL]
+    edgeflips[UL] = 1 - edgeflips[LF]
+    edgeflips[LF] = dummy
+EndSub
+    
+Sub TwistEClockwise
+                         dummy = cornercubies[DRB]
+    cornercubies[DRB] = cornercubies[URB]
+    cornercubies[URB] = cornercubies[ULB]
+    cornercubies[ULB] = cornercubies[DLB]
+    cornercubies[DLB] = dummy
+                         dummy = Math.Remainder(cornertwists[DRB] + 2, 3)
+    cornertwists[DRB] = Math.Remainder(cornertwists[URB] + 1, 3)
+    cornertwists[URB] = Math.Remainder(cornertwists[ULB] + 2, 3)
+    cornertwists[ULB] = Math.Remainder(cornertwists[DLB] + 1, 3)
+    cornertwists[DLB] = dummy            
+                      dummy = edgecubies[DB]
+    edgecubies[DB] = edgecubies[RB]
+    edgecubies[RB] = edgecubies[UB]
+    edgecubies[UB] = edgecubies[LB]
+    edgecubies[LB] = dummy
+                     dummy = edgeflips[DB]
+    edgeflips[DB] = edgeflips[RB]
+    edgeflips[RB] = edgeflips[UB]
+    edgeflips[UB] = edgeflips[LB]
+    edgeflips[LB] = dummy
+EndSub
+
+' Perform one movement action in the data model
+CubeAction_action = 0         ' Which action to perform 
+Sub CubeAction  
+  If CubeAction_action>=Action_E1 And CubeAction_action<=Action_E3 Then
+    n = CubeAction_action-(Action_E1-1)
+    For i=1 to n
+      TwistEClockwise()
+    EndFor
+  ElseIf CubeAction_action>=Action_A0C1 And CubeAction_action<=Action_A3C3 Then
+    n = Math.Floor((CubeAction_action-(Action_A0C1-1)) / 4)    
+    For i=1 to n
+      TwistARight()
+    EndFor
+    n = Math.Remainder(CubeAction_action-(Action_A0C1-1),4)    
+    For i=1 to n
+      TwistCRight()
+    EndFor
+  ElseIf CubeAction_action>=Action_B0D1 And CubeAction_action<=Action_B3D3 Then
+    n = Math.Floor((CubeAction_action-(Action_B0D1-1)) / 4)    
+    For i=1 to n
+      TwistBUp()
+    EndFor
+    n = Math.Remainder(CubeAction_action-(Action_B0D1-1),4)    
+    For i=1 to n
+      TwistDUp()
+    EndFor  
+  EndIf
+EndSub
+  
+
+' ------------ SECTION: Solver -------------------------------------------------------
+
+' Global constants and variables for internal use of  library  (with initializers)
+INVSTEPLETTERS[0] = "0321CBALONMHKJIDGFEcbalonmhkjidgfe"
+INVSTEPLETTERS[1] = "0123LHDCOKGBNJFAMIEabcdefghijklmno"
+INVSTEPLETTERS[2] = "0123ABCDEFGHIJKLMNOlhdcokgbnjfamie"
+INVSTEPLETTERS[3] = "0321DHLAEIMBFJNCGKOdhlaeimbfjncgko"
+
+NUMCORNERTWISTS            = 2187   ' 3^7
+NUMCORNERTWISTGROUPS       = 594    
+NUMEDGEFLIPS               = 2048   ' 2^11 
+NUMMIDDLEEDGEDISTRIBUTIONS = 495    '  12 over 8
+NUMCORNERPERMUTATIONS      = 40320   ' 8!
+NUMCORNERPERMUTATIONGROUPS = 10368   
+NUMOUTEREDGEPERMUTATIONS   = 40320   ' 8!
+NUMMIDDLEEDGEPERMUTATIONS  = 24      ' 4!
+
+' read tables for symmetry reduction (to bring down the algorithm tables from 22GB to 5.5 GB)
+fh = EV3File.OpenRead("SD_Card/tables/symmetries.bin")
+groupofcornertwist = EV3File.ReadNumberArray(fh, NUMCORNERTWISTS)
+cornertwistgroups = EV3File.ReadNumberArray(fh, NUMCORNERTWISTGROUPS*4)
+edgeflipsym = EV3File.ReadNumberArray(fh, NUMEDGEFLIPS*4)
+middleedgedistributionsym = EV3File.ReadNumberArray(fh, NUMMIDDLEEDGEDISTRIBUTIONS*4)
+groupofcornerpermutation = EV3File.ReadNumberArray(fh, NUMCORNERPERMUTATIONS)
+cornerpermutationgroups  = EV3File.ReadNumberArray(fh, NUMCORNERPERMUTATIONGROUPS*4)
+outeredgepermutationsym = EV3File.ReadNumberArray(fh, NUMOUTEREDGEPERMUTATIONS*4)
+middleedgepermutationsym = EV3File.ReadNumberArray(fh, NUMMIDDLEEDGEPERMUTATIONS*4)
+EV3File.Close(fh)  
+
+
+' warm up the table look up facility at program start
+For r=0 to 594*2048 Step 100000
+  EV3File.TableLookup("SD_Card/tables/phase1.bin", 594*2048, r, 0)
+EndFor
+For r=0 to 40320*6 Step 20000
+  EV3File.TableLookup("SD_Card/tables/phase2_0.bin", 10368, r, 0)
+  EV3File.TableLookup("SD_Card/tables/phase2_1.bin", 10368, r, 0)
+EndFor
+
+
+' Compute the next step that must be done in current cube configuration. 
+' The caller already has detected that the cube is in phase 2, so this check is not needed here.
+' Returns:   ComputePhase2Step_step
+Sub ComputePhase2Step
+    ComputeCornerPermutationIndex()
+    ComputeOuterEdgePermutationIndex()
+    ComputeMiddleEdgePermutationIndex()    
+    ' check if cube is already solved - no more actions
+    If ComputeCornerPermutationIndex_index=0 And ComputeOuterEdgePermutationIndex_index=0 And ComputeMiddleEdgePermutationIndex_index=0 Then
+      ComputePhase2Step_step = 0
+    Else
+    ' cube is already in S1 - must use phase2 table
+    
+      t = ComputeCornerPermutationIndex_index
+      o = ComputeOuterEdgePermutationIndex_index
+      m = ComputeMiddleEdgePermutationIndex_index
+      tg = groupofcornerpermutation[t]
+
+      os = 1000000
+      ms = 1000000
+      symtype = -1
+
+      For s = 0 To 3
+        If cornerpermutationgroups[tg*4+s] = t Then                
+          otmp = outeredgepermutationsym[o*4+s]
+          mtmp = middleedgepermutationsym[m*4+s]
+          If (otmp < os) Or (otmp = os And mtmp < ms) Then                 
+            os = otmp
+            ms = mtmp
+            symtype = s
+          EndIf
+        EndIf
+      EndFor     
+       
+      row = os + 40320 * Math.Floor(ms / 2)
+      If row<40320*6 Then
+        x = EV3File.TableLookup("SD_Card/tables/phase2_0.bin", 10368, row, tg)
+      Else
+        x = EV3File.TableLookup("SD_Card/tables/phase2_1.bin", 10368, row-40320*6, tg)
+      EndIf
+	  
+      ComputePhase2Step_step = Text.GetIndexOf(INVSTEPLETTERS[symtype], Text.GetCharacter(x)) - 1         
+    EndIf  
+EndSub
+
+' Compute the next step that must be done in current cube configuration
+' Returns:   ComputeStep_step
+Sub ComputeStep
+  ComputeCornerTwistIndex()
+  ComputeEdgeFlipIndex()
+  ComputeMiddleEdgeDistributionIndex()
+  
+  ' check if cube is already in S1 
+  If ComputeCornerTwistIndex_index=0 And ComputeEdgeFlipIndex_index=0 And ComputeMiddleEdgeDistributionIndex_index=0 Then
+    ComputePhase2Step()
+	ComputeStep_step = ComputePhase2Step_step
+  ' cube seems to have been in S1 when scanning started - just undo the second scan step
+  ElseIf ComputeCornerTwistIndex_index=1346 And ComputeEdgeFlipIndex_index=1962 And ComputeMiddleEdgeDistributionIndex_index=285 Then  
+    ComputeStep_step = Action_A3C1    
+  ' still in S2 - must use phase1 tables  
+  Else
+    t = ComputeCornerTwistIndex_index
+    e = ComputeEdgeFlipIndex_index
+    d = ComputeMiddleEdgeDistributionIndex_index
+    tg = groupofcornertwist[t]
+
+    es = 1000000
+    ds = 1000000
+    symtype = -1
+
+    For s=0 To 3
+      If cornertwistgroups[tg*4+s]=t Then      
+         etmp = edgeflipsym[e*4+s]
+         dtmp = middleedgedistributionsym[d*4+s]
+         If (etmp < es) Or (etmp=es And dtmp<ds) Then
+           es = etmp
+           ds = dtmp
+           symtype = s
+         EndIf
+       EndIf
+    EndFor
+    
+    x = EV3File.TableLookup("SD_Card/tables/phase1.bin", 594*2048, ds, tg + 594 *es)
+    ComputeStep_step = Text.GetIndexOf(INVSTEPLETTERS[symtype], Text.GetCharacter(x)) - 1
+  Endif
+EndSub
+
+
+' Compute the next step and immediately do it in the data model. When there is a chance to combine steps, also 
+' do this automatically and only return the combined action.
+' Returns:  ComputeAndDoStep_step
+Sub ComputeAndDoStep
+  ' compute the next step (could be phase1 or phase2 step)  
+  ComputeStep()
+  ' the total result defaults to this single step
+  ComputeAndDoStep_step = ComputeStep_step
+  
+  ' only if there is a step to be done, compute possibilities
+  If ComputeStep_step>0 Then
+    ' memorize if cube was in phase2 already
+    If ComputeCornerTwistIndex_index=0 And ComputeEdgeFlipIndex_index=0 And ComputeMiddleEdgeDistributionIndex_index=0 Then
+      wasphase1 = "false"
+    Else
+      wasphase1 = "true"
+    Endif
+    
+    ' do the action in the cube model
+    CubeAction_action = ComputeStep_step
+    CubeAction()    
+    
+    '  when the cube was in phase1 situation and now is in phase2 situation, it could be necessary to join moves
+    If wasphase1 Then
+      ComputeCornerTwistIndex()
+      ComputeEdgeFlipIndex()
+      ComputeMiddleEdgeDistributionIndex()
+      If ComputeCornerTwistIndex_index=0 And ComputeEdgeFlipIndex_index=0 And ComputeMiddleEdgeDistributionIndex_index=0 Then
+        ' memorize the last step of phase1
+        step1 = ComputeStep_step
+        ' compute the first step of phase2 
+        ComputePhase2Step()
+        step2 = ComputePhase2Step_step
+        ' default solver step to no action at all 
+        ComputeAndDoStep_step = 0  
+        ' check if the two steps can be joined
+        If step1>=Action_E1 And step1<=Action_E3 And step2>=Action_E1 And step2<=Action_E3 Then          
+          ' do the second step in the model 
+          CubeAction_action = step2
+          CubeAction()              
+          ' compute the compound step 
+          e = Math.Remainder( (step1-(Action_E1-1)) + (step2-(Action_E1-1)), 4)
+          If e>0 Then
+            ComputeAndDoStep_step = (Action_E1-1) + e
+          EndIf
+        ElseIf step1>=Action_A0C1 And step1<=Action_A3C3 And step2>=Action_A0C1 And step2<=Action_A3C3 Then          
+          ' do the second step in the model 
+          CubeAction_action = step2
+          CubeAction()              
+          ' compute the compound step 
+          a = Math.Remainder(Math.Floor((step1-(Action_A0C1-1)) / 4) + Math.Floor((step2-(Action_A0C1-1)) / 4), 4)
+          c = Math.Remainder(Math.Remainder(step1-(Action_A0C1-1),4) + Math.Remainder(step2-(Action_A0C1-1),4), 4)
+          If a>0 Or c>0 Then
+            ComputeAndDoStep_step = (Action_A0C1-1) + a*4 + c
+          EndIf
+        ElseIf step1>=Action_B0D1 And step1<=Action_B3D3 And step2>=Action_B0D1 And step2<=Action_B3D3 Then          
+          ' do the second step in the model 
+          CubeAction_action = step2
+          CubeAction()              
+          ' compute the compound step 
+          b = Math.Remainder(Math.Floor((step1-(Action_B0D1-1)) / 4) + Math.Floor((step2-(Action_B0D1-1)) / 4), 4)
+          d = Math.Remainder(Math.Remainder(step1-(Action_B0D1-1),4) + Math.Remainder(step2-(Action_B0D1-1),4), 4)
+          If b>0 Or d>0 Then
+            ComputeAndDoStep_step = (Action_B0D1-1) + b*4 + d
+          EndIf
+        Else
+          ' can not be joined - keep the first step as the result
+          ComputeAndDoStep_step = step1
+        EndIf
+      EndIf
+    EndIf
+  EndIf      
+EndSub
+
+
+
+' ----------- SECTION: Convert colors to cubies ----------------------------
+
+converterror = 0
+takencornercubies = Vector.Init(8,-1)
+takenedgecubies = Vector.Init(12,-1)
+modificationcandidate1 = -1
+modificationcandidate2 = -1
+
+' mapping of possible corner patterns to cubie and orientation (auto-fix red/orange failure)
+PATTERN2CORNER = Vector.Init(600,-1)
+PATTERN2CORNER[053] = ULF 
+PATTERN2CORNER[013] = ULF 
+PATTERN2CORNER[305] = ULF + 100
+PATTERN2CORNER[301] = ULF + 100
+PATTERN2CORNER[530] = ULF + 200
+PATTERN2CORNER[130] = ULF + 200
+ PATTERN2CORNER[025] = URF 
+ PATTERN2CORNER[021] = URF 
+ PATTERN2CORNER[502] = URF + 100
+ PATTERN2CORNER[102] = URF + 100
+ PATTERN2CORNER[250] = URF + 200
+ PATTERN2CORNER[210] = URF + 200
+PATTERN2CORNER[012] = URB 
+PATTERN2CORNER[052] = URB 
+PATTERN2CORNER[201] = URB + 100
+PATTERN2CORNER[205] = URB + 100
+PATTERN2CORNER[120] = URB + 200
+PATTERN2CORNER[520] = URB + 200
+ PATTERN2CORNER[031] = ULB 
+ PATTERN2CORNER[035] = ULB 
+ PATTERN2CORNER[103] = ULB + 100
+ PATTERN2CORNER[503] = ULB + 100
+ PATTERN2CORNER[310] = ULB + 200
+ PATTERN2CORNER[350] = ULB + 200
+PATTERN2CORNER[435] = DLF 
+PATTERN2CORNER[431] = DLF 
+PATTERN2CORNER[543] = DLF + 100
+PATTERN2CORNER[143] = DLF + 100
+PATTERN2CORNER[354] = DLF + 200
+PATTERN2CORNER[314] = DLF + 200
+ PATTERN2CORNER[452] = DRF 
+ PATTERN2CORNER[412] = DRF 
+ PATTERN2CORNER[245] = DRF + 100
+ PATTERN2CORNER[241] = DRF + 100
+ PATTERN2CORNER[524] = DRF + 200
+ PATTERN2CORNER[124] = DRF + 200
+PATTERN2CORNER[421] = DRB 
+PATTERN2CORNER[425] = DRB 
+PATTERN2CORNER[142] = DRB + 100
+PATTERN2CORNER[542] = DRB + 100
+PATTERN2CORNER[214] = DRB + 200
+PATTERN2CORNER[254] = DRB + 200
+ PATTERN2CORNER[413] = DLB 
+ PATTERN2CORNER[453] = DLB 
+ PATTERN2CORNER[341] = DLB + 100
+ PATTERN2CORNER[345] = DLB + 100
+ PATTERN2CORNER[134] = DLB + 200
+ PATTERN2CORNER[534] = DLB + 200
+ 
+ ' mapping of possible edge patterns to  cubie and flip
+PATTERN2EDGE = Vector.Init(60,-1)
+PATTERN2EDGE[03] = UL
+PATTERN2EDGE[30] = UL + 100
+PATTERN2EDGE[05] = UF
+PATTERN2EDGE[50] = UF + 100
+PATTERN2EDGE[02] = UR
+PATTERN2EDGE[20] = UR + 100
+PATTERN2EDGE[01] = UB
+PATTERN2EDGE[10] = UB + 100
+PATTERN2EDGE[43] = DL
+PATTERN2EDGE[34] = DL + 100
+PATTERN2EDGE[45] = DF
+PATTERN2EDGE[54] = DF + 100
+PATTERN2EDGE[42] = DR
+PATTERN2EDGE[24] = DR + 100
+PATTERN2EDGE[41] = DB
+PATTERN2EDGE[14] = DB + 100
+PATTERN2EDGE[35] = LF
+PATTERN2EDGE[53] = LF + 100
+PATTERN2EDGE[25] = RF
+PATTERN2EDGE[52] = RF + 100
+PATTERN2EDGE[31] = LB
+PATTERN2EDGE[13] = LB + 100
+PATTERN2EDGE[21] = RB
+PATTERN2EDGE[12] = RB + 100
+
+'  list of plausible miss-detections for edges
+MISSDETECTED_EDGE = Vector.Init(12,0)
+MISSDETECTED_EDGE[UL] = UR
+MISSDETECTED_EDGE[UF] = UB
+MISSDETECTED_EDGE[UR] = UL
+MISSDETECTED_EDGE[UB] = UF
+MISSDETECTED_EDGE[DL] = DR
+MISSDETECTED_EDGE[DF] = DB
+MISSDETECTED_EDGE[DR] = DL
+MISSDETECTED_EDGE[DB] = DF
+MISSDETECTED_EDGE[LF] = LB
+MISSDETECTED_EDGE[RF] = RB
+MISSDETECTED_EDGE[LB] = LF
+MISSDETECTED_EDGE[RB] = RF
+
+
+PutPatternToCorner_pattern = 0
+PutPatternToCorner_corner = 0
+Sub PutPatternToCorner
+  x = PATTERN2CORNER[PutPatternToCorner_pattern]
+  If x<0 Then
+    converterror = 1   ' unrecognized corner PutPatternToCorner_pattern
+  Else
+    cubie = Math.Remainder(x,100)
+    If takencornercubies[cubie]>=0 Then
+      converterror = 2   ' attempt to create already generated cubie
+    Else
+      cornercubies[PutPatternToCorner_corner] = cubie
+      cornertwists[PutPatternToCorner_corner] = Math.Floor(x/100)
+      takencornercubies[cubie] = PutPatternToCorner_corner
+    EndIf
+  EndIf
+EndSub
+
+PutPatternToEdge_pattern = 0
+PutPatternToEdge_edge = 0
+Sub PutPatternToEdge
+  x = PATTERN2EDGE[PutPatternToEdge_pattern]
+  If x<0 Then
+    converterror = 3    ' unrecognized edge pattern
+  Else
+    cubie = Math.Remainder(x,100)
+    ' check if cube was already taken
+    If takenedgecubies[cubie]>=0 Then
+      replacement = MISSDETECTED_EDGE[cubie]
+      ' if the possible replacement was not used yet and there was no other modification - may still succeed 
+      If takenedgecubies[replacement]<0 And modificationcandidate1<0 Then  
+        edgecubies[PutPatternToEdge_edge] = replacement
+        edgeflips[PutPatternToEdge_edge] = Math.Floor(x/100)
+        takenedgecubies[replacement] = PutPatternToEdge_edge   ' memorize where the cubie was placed
+        modificationcandidate1 = takenedgecubies[cubie]
+        modificationcandidate2 = PutPatternToEdge_edge
+      Else      
+        converterror = 4   ' unsuccessful attempt to create already generated cubie
+      EndIf
+    Else
+      edgecubies[PutPatternToEdge_edge] = cubie
+      edgeflips[PutPatternToEdge_edge] = Math.Floor(x/100)
+      takenedgecubies[cubie] = PutPatternToEdge_edge   ' memorize where the cubie was placed
+    EndIf
+  EndIf  
+EndSub  
+
+Sub ConvertColorsToCubies
+  converterror = 0
+  takencornercubies = Vector.Init(8,-1)
+  takenedgecubies = Vector.Init(12,-1)
+  modificationcandidate1 = -1
+  modificatiocandidate2 = -1
+  
+  PutPatternToCorner_pattern = 100*colors[20] + 10*colors[8] + colors[27]
+  PutPatternToCorner_corner = ULF
+  PutPatternToCorner()
+  PutPatternToCorner_pattern = 100*colors[18] + 10*colors[11] + colors[6]
+  PutPatternToCorner_corner = URF
+  PutPatternToCorner()
+  PutPatternToCorner_pattern = 100*colors[24] + 10*colors[45] + colors[17]
+  PutPatternToCorner_corner = URB
+  PutPatternToCorner()
+  PutPatternToCorner_pattern = 100*colors[26] + 10*colors[33] + colors[47]
+  PutPatternToCorner_corner = ULB
+  PutPatternToCorner()
+  PutPatternToCorner_pattern = 100*colors[36] + 10*colors[29] + colors[2]
+  PutPatternToCorner_corner = DLF
+  PutPatternToCorner()
+  PutPatternToCorner_pattern = 100*colors[38] + 10*colors[0] + colors[9]
+  PutPatternToCorner_corner = DRF
+  PutPatternToCorner()
+  PutPatternToCorner_pattern = 100*colors[44] + 10*colors[15] + colors[51]
+  PutPatternToCorner_corner = DRB
+  PutPatternToCorner()
+  PutPatternToCorner_pattern = 100*colors[42] + 10*colors[53] + colors[35]
+  PutPatternToCorner_corner = DLB
+  PutPatternToCorner()
+  
+  PutPatternToEdge_pattern = 10*colors[23] + colors[30]
+  PutPatternToEdge_edge = UL
+  PutPatternToEdge()
+  PutPatternToEdge_pattern = 10*colors[19] + colors[7]
+  PutPatternToEdge_edge = UF
+  PutPatternToEdge()
+  PutPatternToEdge_pattern = 10*colors[21] + colors[14]
+  PutPatternToEdge_edge = UR
+  PutPatternToEdge()
+  PutPatternToEdge_pattern = 10*colors[25] + colors[46]
+  PutPatternToEdge_edge = UB
+  PutPatternToEdge()
+  PutPatternToEdge_pattern = 10*colors[39] + colors[32]
+  PutPatternToEdge_edge = DL
+  PutPatternToEdge()
+  PutPatternToEdge_pattern = 10*colors[37] + colors[1]
+  PutPatternToEdge_edge = DF
+  PutPatternToEdge()
+  PutPatternToEdge_pattern = 10*colors[41] + colors[12]
+  PutPatternToEdge_edge = DR
+  PutPatternToEdge()
+  PutPatternToEdge_pattern = 10*colors[43] + colors[52]
+  PutPatternToEdge_edge = DB
+  PutPatternToEdge()
+  PutPatternToEdge_pattern = 10*colors[28] + colors[5]
+  PutPatternToEdge_edge = LF
+  PutPatternToEdge()  
+  PutPatternToEdge_pattern = 10*colors[10] + colors[3]
+  PutPatternToEdge_edge = RF
+  PutPatternToEdge()
+  PutPatternToEdge_pattern = 10*colors[16] + colors[48]
+  PutPatternToEdge_edge = RB
+  PutPatternToEdge()
+  PutPatternToEdge_pattern = 10*colors[34] + colors[50]
+  PutPatternToEdge_edge = LB
+  PutPatternToEdge()
+EndSub   
+
+
+' ------------- SECTION: MAIN PROGRAM ----------------------------------------------------
+
+' I2C protocol commands to send to the stopwatch 
+STOPWATCHCMD_START = Vector.Init(1, 128)
+STOPWATCHCMD_STOP  = Vector.Init(1, 129)
+STOPWATCHCMD_RESET = Vector.Init(1, 130)
+
+Sub Main
+  ' trigger loading of math library at program start
+  i=4.1
+  Math.Remainder(i/1.5-0.001,2) 
+  Math.Floor(i*1.5+8) 
+  
+  ' bring motors to default state
+  InitMotors()
+
+  LCD.Clear()
+  LCD.Write(0,16, "Press red button")
+
+  While "True"
+  waitforstart:  
+    EV3.SetLEDColor("green", "flash")
+
+    ' wait for start button 
+    While Sensor.ReadPercent(3)<80 
+    EndWhile
+    ' reset counter on button down
+    stopwatchdummy = Sensor.CommunicateI2C(1,4, 1,1, STOPWATCHCMD_RESET)
+    Program.Delay(100)
+    ' really start at button up
+    While Sensor.ReadPercent(3)>20 
+    EndWhile
+    
+    EV3.SetLEDColor("red", "normal")
+    stopwatchdummy = Sensor.CommunicateI2C(1,4, 1,1, STOPWATCHCMD_START)
+    starttime = EV3.Time
+        
+    ' do full scan
+    FullScan()
+    scanendtime = EV3.Time  
+    ConvertColorsToCubies()
+    colorconvertendtime = EV3.Time
+    
+    ' if scan seems to be ok (this implies that all cubies are present exactly once), do additional checks
+    If converterror=0 Then
+      ' check if all parities are ok
+      ComputeCheckSums()
+      If ComputeCheckSums_cornertwistsum<>0 Then
+        converterror = 6
+      EndIf
+      If ComputeCheckSums_edgeflipsum<>0 Then
+        converterror = 7
+      EndIf
+      If ComputeCheckSums_permutationparity<>0 Then
+        If modificationcandidate1>=0 Then
+          ' parity is not correct, but this is probably because of wrong edge correction guess - repair it
+          cubie = edgecubies[modificationcandidate1]          
+          edgecubies[modificationcandidate1] = edgecubies[modificationcandidate2]
+          edgecubies[modificationcandidate2] = cubie
+          Speaker.Tone(50,1000,100)          
+        Else
+          converterror = 8
+        EndIf
+      ElseIf modificationcandidate1>=0 Then  
+        ' this seems to be ok, but it was caused by a lucky edge correction - give a info beep
+        Speaker.Tone(50,600,100)
+      EndIf
+    EndIf
+    
+    ' in case of any converterror, abort operation  
+    If converterror<>0 Then
+      WriteColors()
+      LCD.Write(100,112,"ERR"+converterror)
+      Speaker.Tone(50, 440, 250)
+      Goto waitforstart
+    EndIf
+    
+    ' solve             
+    solvestarttime = EV3.Time
+    lastusedaxis=-1  
+    While "True" 
+      ComputeAndDoStep()
+
+      If ComputeAndDoStep_step<=0 Then
+        Goto done
+      EndIf
+    
+      MotorAction_action = ComputeAndDoStep_step
+      MotorAction()
+    EndWhile
+    done:
+
+    WaitForMotorFinished()
+  
+    endtime = EV3.Time
+    stopwatchdummy = Sensor.CommunicateI2C(1,4, 1,1, STOPWATCHCMD_STOP)
+  
+    ' write result
+    LCD.Clear()
+    LCD.Write(10, 16, "Scan:    "+ (scanendtime-starttime)+" ms")
+    LCD.Write(10, 32, "Convert: "+ (colorconvertendtime-scanendtime)+" ms")
+    LCD.Write(10, 48, "Prepare: "+ (solvestarttime-colorconvertendtime)+" ms")
+    LCD.Write(10, 64, "Solve:   "+ (endtime-solvestarttime)+" ms")
+    LCD.Write(10, 80, "Total:   "+ (endtime-starttime)+" ms") 
+  EndWhile
+EndSub
+
+Main()

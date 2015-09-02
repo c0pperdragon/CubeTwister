@@ -1,0 +1,86 @@
+CMD_STARTSCAN0 = Vector.Init(1,128)
+CMD_STARTSCAN1 = Vector.Init(1,129)
+CMD_STARTSCAN2 = Vector.Init(1,130)
+CMD_GETCOLORS  = Vector.Init(1,132)
+
+' Initialize Hardware for MotorControl
+' at end of init all motors are locked in place
+Sub MotorControl_Init
+  ' align gears of single-controlled motors to fit the cube orientation
+  Motor.StartPower("AC", 5)
+  ' take up slack of compound motors E
+  Motor.StartPower("B",-4)  
+  Motor.StartPower("D",4)
+  ' take up slack of compound motors B and D
+  Motor.StartPower("2AC", 4)
+  Motor.StartPower("2BD", -4)
+  
+  Program.Delay(200)
+  
+  ' lock in place
+  Motor.SchedulePower("B", -50, 0,0,0, "true")
+  Motor.SchedulePower("D", 50, 0,0,0, "true")
+  Motor.SchedulePower("2AC",50, 0,0,0, "true")    
+  Motor.SchedulePower("2BD",-50, 0,0,0, "true")    
+  ' move single-controlled motors to 0 position and lock in place
+  Motor.SchedulePower("AC",-10,0,3,0,"true")   
+  
+  Program.Delay(200)
+EndSub
+  
+Sub FullScan
+  Motor.SchedulePower("ABCD", 0, 0,0,0, "false")
+  
+  scanstarttime = EV3.Time
+  ' first (fast) movement
+  Motor.SchedulePower("2ABCD", 100, 0,30,0, "false")
+  
+  While EV3.Time < scanstarttime+60
+  EndWhile
+  Motor.SchedulePower("2ABCD", 100, 0,20,0, "true")
+    
+  While EV3.Time < scanstarttime+90
+  EndWhile
+
+  scanstarttime = EV3.Time
+  ' start second (slow) movement and scan next 20 faces
+  Motor.SchedulePower("AC", 100, 0,50,0, "false")
+
+  ' switch off PWN of first motor (and correct target) and adjust internal position counter
+  While EV3.Time < scanstarttime+20
+  EndWhile  
+  Motor.SchedulePower("2ABCD", 100, 0,4,0, "false")  
+  
+  ' continue to let second motor run (uncontrolled) until scan is finished
+  While EV3.Time < scanstarttime + 80
+  EndWhile
+  ' move to correct end position
+  Motor.SchedulePower("AC", 100, 0,36,0, "true")  
+  
+  ' wait until second motor is approximately at correct end position
+  While EV3.Time < scanstarttime + 120
+  EndWhile  
+  ' turn off PWN control of second motor and adjust internal position ocunter
+  Motor.SchedulePower("AC", 20, 0,0,0, "false")
+  
+  '  do a non-moving scan of the remaining 8 faces
+'  i2cdummy = Sensor.CommunicateI2C(1,4, 1,1, CMD_STARTSCAN2)
+  Program.Delay(10)
+
+  ' lock everything in place
+  Motor.SchedulePower("AC",  100, 0,4,0, "true")
+  Motor.SchedulePower("BD",  100, 0,0,0, "true")
+  Motor.SchedulePower("2ABCD", 100, 0,0,0, "true")
+  
+  Program.Delay(50)
+  
+EndSub
+  
+  
+MotorControl_Init()
+
+While ("true")
+  FullScan()
+  While Sensor.ReadPercent(3)<50
+  EndWhile
+EndWhile

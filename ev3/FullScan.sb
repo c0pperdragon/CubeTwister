@@ -1,0 +1,179 @@
+GraphicsWindow.Height = 500
+GraphicsWindow.Width = 800
+
+' I2C protocol tags
+CMD_STARTSCAN0[0] = 128
+CMD_STARTSCAN1[0] = 129
+CMD_STARTSCAN2[0] = 130
+CMD_GETSAMPLE[0]  = 131
+CMD_GETCOLORS[0]  = 132
+
+' color names for graphic display
+COLOR_NAME[0] = "white"
+COLOR_NAME[1] = "red"
+COLOR_NAME[2] = "green"
+COLOR_NAME[3] = "blue"
+COLOR_NAME[4] = "yellow"
+COLOR_NAME[5] = "orange"
+
+' to hold the scan result
+colors = Vector.Init(54,-1)
+' center facelets can not be scanned
+colors[4]  = 5
+colors[13] = 2
+colors[22] = 0
+colors[31] = 3
+colors[40] = 4
+colors[49] = 1
+
+' initialize motors for most accurate performance
+MotorControl_Init()
+
+
+' do first (fast) movement and scan first 20 faces
+stopscantime = EV3.Time + 105
+EV3.QueueNextCommand()
+Motor.SchedulePower("2ABCD", 100, 0,24,0, "false")
+dummy = Sensor.CommunicateI2C(1,4, 1,1, CMD_STARTSCAN0)
+
+While EV3.Time < stopscantime
+    Program.Delay(1)
+EndWhile
+Motor.SchedulePower("2ABCD", 80, 0,30,0, "true")
+'Program.Delay(50)
+
+col = Sensor.CommunicateI2C(1,4, 1,20, CMD_GETCOLORS)
+colors[48] = col[0]
+colors[33] = col[1]
+colors[26] = col[2]
+ colors[16] = col[3]
+ colors[47] = col[4]
+colors[10] = col[5]
+colors[2] = col[6]
+ colors[3] = col[7]
+ colors[29] = col[8]
+ colors[36] = col[9]
+colors[50] = col[10]
+colors[15] = col[11]
+colors[44] = col[12]
+ colors[34] = col[13]
+ colors[51] = col[14]
+colors[28] = col[15]
+colors[6] = col[16]
+ colors[5] = col[17]
+ colors[11] = col[18]
+ colors[18] = col[19]
+ 
+Motor.Stop("2ABCD","false")
+
+' do second (slow) movement and scan next 20 faces
+stopscantime = EV3.Time + 110
+EV3.QueueNextCommand()
+Motor.SchedulePower("AC", 100, 0,35,0, "false")
+dummy = Sensor.CommunicateI2C(1,4, 1,1, CMD_STARTSCAN1)
+
+While EV3.Time < stopscantime
+    Program.Delay(1)
+EndWhile
+Motor.SchedulePower("AC", 100, 0,55,0, "true")
+'Program.Delay(100)
+
+col = Sensor.CommunicateI2C(1,4, 1,20, CMD_GETCOLORS)
+colors[25] = col[0]
+colors[24] = col[1]
+ colors[46] = col[2]
+ colors[45] = col[3]
+ colors[17] = col[4]
+colors[1] = col[5]
+colors[0] = col[6]
+colors[9] = col[7]
+ colors[37] = col[8]
+ colors[38] = col[9]
+colors[43] = col[10]
+colors[42] = col[11]
+ colors[52] = col[12]
+ colors[53] = col[13]
+ colors[35] = col[14]
+colors[7] = col[15]
+colors[8] = col[16]
+colors[27] = col[17]
+ colors[19] = col[18]
+ colors[20] = col[19]
+
+Motor.Stop("AC","false")
+
+'  do a resting scan of the remaining 8 faces
+dummy = Sensor.CommunicateI2C(1,4, 1,1, CMD_STARTSCAN2)
+
+col = Sensor.CommunicateI2C(1,4, 1,8, CMD_GETCOLORS)
+colors[21] = col[0]
+colors[14] = col[1]
+colors[12] = col[2]
+colors[41] = col[3]
+colors[39] = col[4]
+colors[32] = col[5]
+colors[30] = col[6]
+colors[23] = col[7]
+
+' Draw graphic with colors
+GraphicsWindow.BackgroundColor = "black"
+GraphicsWindow.Clear()
+
+histogram = Vector.Init(6,0)
+edgehistogram = Vector.Init(6,0)
+For f=0 to 5
+  fx = 1
+  fy = Math.Floor((f+3)/4)
+  If fy=1 Then
+    fx = f-1
+  EndIf
+  For y=0 To 2
+    For x=0 to 2
+      c = colors[f*9+y*3+x]
+      GraphicsWindow.BrushColor = COLOR_NAME[c]
+      GraphicsWindow.FillRectangle(10+fx*100+x*30,10+fy*100+y*30, 27,27)
+      histogram[c] = histogram[c] + 1
+      If (x=1 or y=1) and x*y<>1 Then
+        edgehistogram[c] = edgehistogram[c] + 1 
+      EndIf
+    EndFor
+  EndFor
+EndFor
+For c=0 to 5
+  GraphicsWindow.BrushColor = COLOR_NAME[c]
+  GraphicsWindow.DrawText(220+c*25,45, histogram[c])
+  GraphicsWindow.DrawText(220+c*25,60, edgehistogram[c])
+EndFor
+
+' wait until graphics window is closed
+
+
+
+Sub MotorControl_Init
+  Motor.Stop("ABCD","False")
+  Motor.Stop("2ABCD","False")
+  ' align gears of single-controlled motors to fit the cube orientation
+  Motor.StartPower("AC", 2)
+  ' take up slack of compound motors E
+  Motor.StartPower("B",-5)
+  Motor.StartPower("D",5)
+  ' take up slack of compound motors B and D
+  Motor.StartPower("2AC", 7)
+  Motor.StartPower("2BD", -7)
+  
+  Program.Delay(100)
+  
+  ' stop all aligment moves
+  Motor.Stop("ABCD","true")    
+  Motor.Stop("2ABCD","true")    
+  Program.Delay(100)
+  Motor.ResetCount("ABCD")
+  Motor.ResetCount("2ABCD")
+  
+  ' move single-controlled motors to 0 position
+  Motor.SchedulePower("AC",-10,0,3,0,"true")   
+  Program.Delay(100)
+
+  Motor.Stop("ABCD","false")    
+  Motor.Stop("2ABCD","false")      
+EndSub

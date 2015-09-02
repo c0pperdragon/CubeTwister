@@ -1,0 +1,231 @@
+GraphicsWindow.Height = 500
+GraphicsWindow.Width = 800
+
+' I2C protocol tags
+CMD_STARTSCAN0[0] = 128
+CMD_STARTSCAN1[0] = 129
+CMD_STARTSCAN2[0] = 130
+CMD_GETSAMPLE[0]  = 131
+CMD_GETCOLORS[0]  = 132
+
+MODE = 0
+
+' reference colors (components add up to 1.0)
+COLOR_NAME[0] = "white"
+REFERENCE_R[0] = 170
+REFERENCE_G[0] = 170
+REFERENCE_B[0] = 150
+COLOR_NAME[1] = "red"
+REFERENCE_R[1] = 170
+REFERENCE_G[1] = 57
+REFERENCE_B[1] = 45
+COLOR_NAME[2] = "green"
+REFERENCE_R[2] = 52
+REFERENCE_G[2] = 150
+REFERENCE_B[2] = 53
+COLOR_NAME[3] = "blue"
+REFERENCE_R[3] = 50
+REFERENCE_G[3] = 63
+REFERENCE_B[3] = 75
+COLOR_NAME[4] = "yellow"
+REFERENCE_R[4] = 185
+REFERENCE_G[4] = 175
+REFERENCE_B[4] = 67
+COLOR_NAME[5] = "orange"
+REFERENCE_R[5] = 180
+REFERENCE_G[5] = 80
+REFERENCE_B[5] = 50
+
+TIMINGX = Vector.Init(8,-1)
+TIMING1 = Vector.Init(8,-1)
+TIMING2 = Vector.Init(8,-1)
+If MODE=1 Then
+  TIMINGX[0] = 41
+  TIMING1[1] = 33
+  TIMING2[1] = 55
+  TIMING1[2] = 33
+  TIMING2[2] = 55
+  TIMINGX[3] = 41
+  TIMINGX[4] = 41
+  TIMING1[5] = 36
+  TIMING2[5] = 58
+  TIMING1[6] = 33
+  TIMING2[6] = 55
+  TIMINGX[7] = 41
+  SCANTIME = 60
+ElseIf Mode=0 Then
+  TIMING1[0] = 32
+  TIMING2[0] = 49
+  TIMINGX[1] = 40
+  TIMINGX[2] = 40
+  TIMING1[3] = 32
+  TIMING2[3] = 47
+  TIMING1[4] = 33
+  TIMING2[4] = 46
+  TIMINGX[5] = 40
+  TIMINGX[6] = 40
+  TIMING1[7] = 33
+  TIMING2[7] = 46
+  SCANTIME = 50
+EndIf  
+
+
+
+MotorControl_Init()
+
+
+If MODE=1 Then
+  stopscantime = EV3.Time + 110
+  EV3.QueueNextCommand()
+  Motor.SchedulePower("AC", 100, 0,35,0, "false")
+  dummy = Sensor.CommunicateI2C(1,4, 1,1, CMD_STARTSCAN1)
+
+  While EV3.Time < stopscantime
+    Program.Delay(1)
+  EndWhile
+  Motor.SchedulePower("AC", 100, 0,55,0, "true")
+  
+ElseIf MODE=0 Then
+  stopscantime = EV3.Time + 100
+  EV3.QueueNextCommand()
+  Motor.SchedulePower("2ABCD", 100, 0,24,0, "false")
+  dummy = Sensor.CommunicateI2C(1,4, 1,1, CMD_STARTSCAN0)
+
+  While EV3.Time < stopscantime
+    Program.Delay(1)
+  EndWhile
+  Motor.SchedulePower("2ABCD", 100, 0,30,0, "true")
+  
+Else  
+  CMD_STARTSCAN[1] = MODE
+  dummy = Sensor.CommunicateI2C(1,4, 1,1, CMD_STARTSCAN2)
+  Program.Delay(1)  
+EndIf  
+
+' Read all sample data from sensor
+rgb = Vector.Init(50*3*8,0)
+For x=0 To SCANTIME-1
+  CMD_GETSAMPLE[1] = x
+  hs = Sensor.CommunicateI2C(1,4, 2,24, CMD_GETSAMPLE)
+  
+  For i=0 to 24-1
+    rgb[x*3*8+i] = hs[i]
+  EndFor
+EndFor
+
+' Draw graphs with raw data
+GraphicsWindow.BackgroundColor = "black"
+GraphicsWindow.Clear()
+
+GraphicsWindow.BrushColor = "DarkGray"
+For s=0 to 7 
+  If TIMINGX[s]>0 Then
+    GraphicsWindow.FillRectangle(TIMINGX[s]+s*100,0, 1,390)
+  EndIf
+  If TIMING1[s]>0 Then
+    GraphicsWindow.FillRectangle(TIMING1[s]+s*100,0, 1,390)
+  EndIf
+  If TIMING2[s]>0 Then
+    GraphicsWindow.FillRectangle(TIMING2[s]+s*100,0, 1,390)
+  EndIf
+  
+  For x=0 To SCANTIME-1
+    r = rgb[x*24+3*s]
+    g = rgb[x*24+3*s+1]
+    b = rgb[x*24+3*s+2]
+  
+    GraphicsWindow.SetPixel(x+s*100,128-r/2, "red")
+    GraphicsWindow.SetPixel(x+s*100,256-g/2, "green")  
+    GraphicsWindow.SetPixel(x+s*100,384-b/2, "blue")    
+  EndFor  
+EndFor
+
+' search for the best match for a color in the search area
+For s=0 to 7 
+  x = 0
+  DetermineColor()
+  GraphicsWindow.BrushColor = COLOR_NAME[color]
+  GraphicsWindow.FillRectangle(s*100,400, 20,20)
+  
+  If TIMINGX[s]>0 Then
+    x = TIMINGX[s]
+    DetermineColor()
+    GraphicsWindow.BrushColor = COLOR_NAME[color]
+    GraphicsWindow.FillRectangle(s*100+25,400, 20,20)    
+  EndIf
+  If TIMING1[s]>0 Then
+    x = TIMING1[s]
+    DetermineColor()
+    GraphicsWindow.BrushColor = COLOR_NAME[color]
+    GraphicsWindow.FillRectangle(s*100+25,400, 20,20)
+  EndIf
+  If TIMING2[s]>0 Then
+    x = TIMING2[s]
+    DetermineColor()
+    GraphicsWindow.BrushColor = COLOR_NAME[color]
+    GraphicsWindow.FillRectangle(s*100+50,400, 20,20)
+  EndIf      
+EndFor
+
+' request colors directly from sensor to compare the results
+colors = Sensor.CommunicateI2C(3,4, 1,20, CMD_GETCOLORS)
+For i=0 to 19
+  GraphicsWindow.BrushColor = COLOR_NAME[colors[i]]
+  GraphicsWindow.FillRectangle(i*30,440, 25,25)
+EndFor
+
+' bring motors to rest, but program runs until graphics window is closed
+Program.Delay(100)
+Motor.Stop("1ABCD", "false")
+Motor.Stop("2ABCD", "false")
+
+Sub DetermineColor
+  color = 3  ' default to blue if nothing else detected
+  
+  r = rgb[x*24+s*3]
+  g = rgb[x*24+s*3+1]
+  b = rgb[x*24+s*3+2]
+      
+    '  compare with reference colors (normalized) and find best match
+    best = 100000000
+    For c=0 To 5 
+      dr = r - REFERENCE_R[c]
+      dg = g - REFERENCE_G[c]
+      db = b - REFERENCE_B[c]
+      d = dr*dr +dg*dg + db*db
+      If d<best Then
+        best = d
+        color = c
+      EndIf
+    EndFor
+EndSub
+
+
+Sub MotorControl_Init
+  Motor.Stop("ABCD","False")
+  Motor.Stop("2ABCD","False")
+  ' align gears of single-controlled motors to fit the cube orientation
+  Motor.StartPower("AC", 2)
+  ' take up slack of compound motors E
+  Motor.StartPower("B",-5)
+  Motor.StartPower("D",5)
+  ' take up slack of compound motors B and D
+  Motor.StartPower("2AC", 7)
+  Motor.StartPower("2BD", -7)
+  
+  Program.Delay(100)
+  
+  ' stop all aligment moves
+  Motor.Stop("ABCD","true")    
+  Motor.Stop("2ABCD","true")    
+  Program.Delay(100)
+  Motor.ResetCount("ABCD")
+  Motor.ResetCount("2ABCD")
+  
+  ' move single-controlled motors to 0 position
+  Motor.SchedulePower("AC",-10,0,3,0,"true")   
+  Program.Delay(100)
+
+  Motor.Stop("ABCD","false")    
+  Motor.Stop("2ABCD","false")      
+EndSub
