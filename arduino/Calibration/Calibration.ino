@@ -18,26 +18,14 @@
 // scan pin assignment
 byte scan_pin[8] = { 8,1,0,2,3,5,4,9 };
 
-// rgb calibration
-unsigned int calibration[8][3] = {
-  { 125, 114, 103 },      // sensor 0
-  { 110, 107, 80 },      // sensor 1
-  { 113, 91, 90 },      // sensor 2
-  { 124, 144, 122 },     // sensor 3
-  { 143, 114, 117 },      // sensor 4
-  { 119, 112, 87 },      // sensor 5
-  { 120, 106, 100 },      // sensor 6
-  { 112, 95, 75 }      // sensor 7
-};
-unsigned int calibration_offset = -20;
 
 void setup()
 {
   // set prescale to 16  (to speed up the analogRead function)
-  sbi(ADCSRA,ADPS2) ;
-  cbi(ADCSRA,ADPS1) ;
+  cbi(ADCSRA,ADPS2) ;
+  sbi(ADCSRA,ADPS1) ;
   cbi(ADCSRA,ADPS0) ;
-  
+    
   // set mode and initial values for RGB controll pins
   pinMode(redPin, OUTPUT);          
   pinMode(greenPin, OUTPUT);     
@@ -50,64 +38,81 @@ void setup()
   Serial.begin(9600);  
 }
 
+int rd(int i)
+{
+  int p = scan_pin[i];
+  analogRead(p);
+  return (analogRead(p) + analogRead(p) + analogRead(p)) >> 2;
+}
+
+
 void loop()
 {
-  int raw[8][4];
   int i;
+  byte rgb[8][3];
   
   while (true)
   {
-    // take ambient reading from all sensors
-    delayMicroseconds(50);
+    long t0= micros();
+    // take readings from all sensors
     for (i=0; i<8; i++)
     {  
-      raw[i][3] = analogRead(scan_pin[i]);
-    }
+      // take red reading
+      digitalWrite(redPin, LOW);
+      unsigned int r = rd(i);
+      digitalWrite(redPin, HIGH);
 
-    // take red readings from all sensors
-    digitalWrite(redPin, LOW);
-    delayMicroseconds(50);
-    for (i=0; i<8; i++)
-    {  
-      raw[i][0] = analogRead(scan_pin[i]);
-    }
-    digitalWrite(redPin, HIGH);
+      // ambient readings 
+      unsigned int ambient = rd(i);
 
-    // take green readings from all sensors
-    digitalWrite(greenPin, LOW);
-    delayMicroseconds(50);
-    for (i=0; i<8; i++)
-    {  
-      raw[i][1] = analogRead(scan_pin[i]);
-    }
-    digitalWrite(greenPin, HIGH);
+      // take green reading
+      digitalWrite(greenPin, LOW);
+      unsigned int g = rd(i);
+      digitalWrite(greenPin, HIGH);
 
-    // take blue readings from all sensors
-    digitalWrite(bluePin, LOW);
-    delayMicroseconds(50);
-    for (int i=0; i<8; i++)
-    {  
-      raw[i][2] = analogRead(scan_pin[i]);
+      // take blue reading
+      digitalWrite(bluePin, LOW);
+      unsigned int b = rd(i);
+      digitalWrite(bluePin, HIGH);
+
+      if (r>ambient+255) {
+        rgb[i][0] = 255;
+      } else if (r>ambient) {
+        rgb[i][0] = (r - ambient);
+      } else {
+        rgb[i][0] = 0;
+      }
+      if (g>ambient+255) {
+        rgb[i][1] = 0;
+      } else if (g>ambient) {
+        rgb[i][1] = (g - ambient);
+      } else {
+        rgb[i][1] = 0;
+      }
+      if (b>ambient+255) {
+        rgb[i][2] = 255;        
+      } else if (b>ambient) {
+        rgb[i][2] = (b - ambient);
+      } else {
+        rgb[i][2] = 0;
+      }
     }
-    digitalWrite(bluePin, HIGH);
-       
-    // write reading to console 
+    long t1= micros();
+    
+    // write readings to console 
     for (i=0; i<8; i++)
     {
-      int x = raw[i][3];
-      unsigned int r = max(raw[i][0] - x, 0);
-      unsigned int g = max(raw[i][1] - x, 0);
-      unsigned int b = max(raw[i][2] - x, 0);            
-            
       Serial.print(i);
       Serial.print(":");
-      Serial.print((byte) (((r*calibration[i][0]) >> 8) + calibration_offset));
+      Serial.print(rgb[i][0]);
       Serial.print(",");
-      Serial.print((byte) (((g*calibration[i][1]) >> 8) + calibration_offset));
+      Serial.print(rgb[i][1]);
       Serial.print(",");
-      Serial.print((byte) (((b*calibration[i][2]) >> 8) + calibration_offset));
-      Serial.print(" ");
+      Serial.print(rgb[i][2]);
+      Serial.print("  ");
     }
+    Serial.print(" time:");
+    Serial.print(t1-t0);
     Serial.print("\n");
   
     // do only one reading per second

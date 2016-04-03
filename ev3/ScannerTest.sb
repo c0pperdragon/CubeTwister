@@ -8,33 +8,33 @@ CMD_STARTSCAN2[0] = 130
 CMD_GETSAMPLE[0]  = 131
 CMD_GETCOLORS[0]  = 132
 
-MODE = 0
+MODE = 1
 
-' reference colors (components add up to 1.0)
+' reference colors
 COLOR_NAME[0] = "white"
-REFERENCE_R[0] = 170
-REFERENCE_G[0] = 170
-REFERENCE_B[0] = 150
+REFERENCE_R[0] = 100
+REFERENCE_G[0] = 100
+REFERENCE_B[0] = 100
 COLOR_NAME[1] = "red"
-REFERENCE_R[1] = 170
-REFERENCE_G[1] = 57
-REFERENCE_B[1] = 45
+REFERENCE_R[1] = 88
+REFERENCE_G[1] = 25
+REFERENCE_B[1] = 20
 COLOR_NAME[2] = "green"
-REFERENCE_R[2] = 52
-REFERENCE_G[2] = 150
-REFERENCE_B[2] = 53
+REFERENCE_R[2] = 22
+REFERENCE_G[2] = 54
+REFERENCE_B[2] = 23
 COLOR_NAME[3] = "blue"
-REFERENCE_R[3] = 50
-REFERENCE_G[3] = 63
-REFERENCE_B[3] = 75
+REFERENCE_R[3] = 20
+REFERENCE_G[3] = 25
+REFERENCE_B[3] = 35
 COLOR_NAME[4] = "yellow"
-REFERENCE_R[4] = 185
-REFERENCE_G[4] = 175
-REFERENCE_B[4] = 67
+REFERENCE_R[4] = 95
+REFERENCE_G[4] = 80
+REFERENCE_B[4] = 27
 COLOR_NAME[5] = "orange"
-REFERENCE_R[5] = 180
-REFERENCE_G[5] = 80
-REFERENCE_B[5] = 50
+REFERENCE_R[5] = 90
+REFERENCE_G[5] = 30
+REFERENCE_B[5] = 22
 
 TIMINGX = Vector.Init(8,-1)
 TIMING1 = Vector.Init(8,-1)
@@ -42,7 +42,7 @@ TIMING2 = Vector.Init(8,-1)
 If MODE=1 Then
   TIMINGX[0] = 41
   TIMING1[1] = 33
-  TIMING2[1] = 55
+  TIMING2[1] = 56
   TIMING1[2] = 33
   TIMING2[2] = 55
   TIMINGX[3] = 41
@@ -50,17 +50,17 @@ If MODE=1 Then
   TIMING1[5] = 36
   TIMING2[5] = 58
   TIMING1[6] = 33
-  TIMING2[6] = 55
+  TIMING2[6] = 56
   TIMINGX[7] = 41
   SCANTIME = 60
 ElseIf Mode=0 Then
-  TIMING1[0] = 32
+  TIMING1[0] = 33
   TIMING2[0] = 49
   TIMINGX[1] = 40
   TIMINGX[2] = 40
   TIMING1[3] = 32
   TIMING2[3] = 47
-  TIMING1[4] = 33
+  TIMING1[4] = 34
   TIMING2[4] = 46
   TIMINGX[5] = 40
   TIMINGX[6] = 40
@@ -168,10 +168,14 @@ For s=0 to 7
 EndFor
 
 ' request colors directly from sensor to compare the results
-colors = Sensor.CommunicateI2C(3,4, 1,20, CMD_GETCOLORS)
+colors = Sensor.CommunicateI2C(1,4, 1,20, CMD_GETCOLORS)
 For i=0 to 19
-  GraphicsWindow.BrushColor = COLOR_NAME[colors[i]]
+  colorindex = Math.Remainder(colors[i],8)
+  lum = (colors[i]-colorindex)/8
+  GraphicsWindow.BrushColor = COLOR_NAME[colorindex]
   GraphicsWindow.FillRectangle(i*30,440, 25,25)
+  GraphicsWindow.BrushColor = "white"
+  GraphicsWindow.DrawText(i*30,465, ""+lum)
 EndFor
 
 ' bring motors to rest, but program runs until graphics window is closed

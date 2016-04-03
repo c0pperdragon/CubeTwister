@@ -1,3 +1,6 @@
+// Control for the stopwatch cirtuit.
+// Uses an Arduino Leonardo
+
 #include <Wire.h>
 
 #define SLAVE_ADDRESS    0x04

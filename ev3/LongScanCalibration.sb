@@ -1,3 +1,6 @@
+filename = "c:\temp\sensorreading.txt"
+
+
 ' ---------- SECTION: Motor Control ----------------------------------------------------------
 
 ' Some motors of the model  are grouped together to form a stronger,
@@ -239,70 +242,131 @@ Sub WaitForMotorFinished
   EndWhile  
 EndSub
 
+
+' I2C protocol tags
+CMD_STARTSCAN0[0] = 128
+CMD_STARTSCAN1[0] = 129
+CMD_STARTSCAN2[0] = 130
+CMD_GETSAMPLE[0]  = 131
+CMD_GETCOLORS[0]  = 132
+
+
+MODE=0
+Sub DoScan
+  TIMINGX = Vector.Init(8,-1)
+  TIMING1 = Vector.Init(8,-1)
+  TIMING2 = Vector.Init(8,-1)
+  If MODE=1 Then
+    TIMINGX[0] = 41
+    TIMING1[1] = 33
+    TIMING2[1] = 56
+    TIMING1[2] = 33
+    TIMING2[2] = 55
+    TIMINGX[3] = 41
+    TIMINGX[4] = 41
+    TIMING1[5] = 36
+    TIMING2[5] = 58
+    TIMING1[6] = 33
+    TIMING2[6] = 56
+    TIMINGX[7] = 41
+    SCANTIME = 60
+  ElseIf Mode=0 Then
+    TIMING1[0] = 33
+    TIMING2[0] = 49
+    TIMINGX[1] = 40
+    TIMINGX[2] = 40
+    TIMING1[3] = 32
+    TIMING2[3] = 47
+    TIMING1[4] = 34
+    TIMING2[4] = 46
+    TIMINGX[5] = 40
+    TIMINGX[6] = 40
+    TIMING1[7] = 33
+    TIMING2[7] = 46
+    SCANTIME = 50
+  EndIf  
+  
+  If MODE=1 Then
+    stopscantime = EV3.Time + 110
+    EV3.QueueNextCommand()
+    Motor.SchedulePower("AC", 100, 0,35,0, "false")
+    dummy = Sensor.CommunicateI2C(1,4, 1,1, CMD_STARTSCAN1)
+
+    While EV3.Time < stopscantime
+      Program.Delay(1)
+    EndWhile
+    Motor.SchedulePower("AC", 100, 0,55,0, "true")
     
-    
-' Test main program   - simulate movements for a a full solve
+  ElseIf MODE=0 Then
+    stopscantime = EV3.Time + 100
+    EV3.QueueNextCommand()
+    Motor.SchedulePower("2ABCD", 100, 0,24,0, "false")
+    dummy = Sensor.CommunicateI2C(1,4, 1,1, CMD_STARTSCAN0)
+
+    While EV3.Time < stopscantime
+      Program.Delay(1)
+    EndWhile
+    Motor.SchedulePower("2ABCD", 100, 0,30,0, "true")    
+  Else  
+    CMD_STARTSCAN[1] = MODE
+    dummy = Sensor.CommunicateI2C(1,4, 1,1, CMD_STARTSCAN2)
+    Program.Delay(1)  
+  EndIf  
+
+  For s=0 To 7 
+    x = 0
+    GetSensorData()
+    If TIMINGX[s]>0 Then
+      x = TIMINGX[s]
+      GetSensorData()
+    EndIf
+    If TIMING1[s]>0 Then
+      x = TIMING1[s]
+      GetSensorData()
+    EndIf
+    If TIMING2[s]>0 Then
+      x = TIMING2[s]
+      GetSensorData()
+    EndIf  
+  endfor  
+EndSub
+
+Sub GetSensorData
+  CMD_GETSAMPLE[1] = x
+  hs = Sensor.CommunicateI2C(1,4, 2,24, CMD_GETSAMPLE)
+  
+  File.AppendContents(filename, s+":"+hs[3*s]+":"+hs[3*s+1]+":"+hs[3*s+2])
+EndSub
+
+
+'  Main program  perform long series of scans to create  the calibration data
+
 InitMotors()
 
-' 324747144:2 AdJ1IgLabFhA2CbDjMb2K         no clash:  AdJ1IgLcFhA2CbDjMb2K 
-' 541173378:2 Dg1eAdCmI12Fh2BhDj2L2          no clash: Dg1eAdCmI3Fh2BhDj2L2
-' 199705743:2 kA1bL2a1G2L2DbC2NhL2C        no clash: kA1bL2a1G2L2DbC2NhL2C
-' 251857082:0 E1fC3gKc1A2Cj2Cj2FhAhD        no clash:  kA1bL2a1G2L2DbC2NhL2C
-' 142462416:2 3DcMnOb3dFbD2bAhD2jL         no clash:  oCk3GcK1d2D2hMh2D2L2jM
-' 587789532:3 oCk3GcK1d2D2hMh2D2L2jM
-' 23962843:1 G1bGfFa12jIb2C2jBh2C                 no clash:  G1bGfFa3jIb2C2jBh2C
-' 450899188:3 InM3gAd1CbNhEjAj2bG
-' 265998603:3 K3gK1oL1eMhLbC2hA2Gb2Ab
-' 31130161:1 C3jM1m1B1NbD2AhD2jCbGh
-sequence = "AdJ1IgLcFhA2CbDjMb2K"
-
-
-'  test scan run
-'MotorControl_a = 2
-'MotorControl_c = 2
-'MotorControl_MoveAC()
-'MotorControl_b = 2
-'MotorControl_d = 2
-'MotorControl_MoveBD()
-'MotorControl_a = 2
-'MotorControl_c = 2
-'MotorControl_MoveAC()
-'MotorControl_b = 2
-'MotorControl_d = 2
-'MotorControl_MoveBD()
-
-Program.Delay(150)
-
-start = EV3.Time
-
-' test solve run
-for i=1 to Text.GetLength(sequence)
-  x = Text.GetCharacterCode(Text.GetSubText(sequence, i,1))     ' extract action code
-  
-  If x>=49 And x<=51 Then        '    "1"   -  "3"
-    MoveE_e = x-48
-    MoveE()
-  ElseIf x>=65 And x<=79 Then    '    "A" - "O"
-    MoveAC_a = Math.Floor((x-64) / 4)
-    MoveAC_c = Math.Remainder(x-64, 4)
-    MoveAC()
-  Elseif x>=97 And x<=111 Then   '   "a" - "o"
-    MoveBD_b = Math.Floor((x-96) / 4)
-    MoveBD_d = Math.Remainder(x-96, 4)
-    MoveBD()
-  Else
-    Program.Delay(1000)    ' error condition
-  EndIf     
-Endfor
-
-' fair end time: after last face is in place
-While EV3.Time < moveendtime 
-EndWhile
-
-end = EV3.Time
-
-LCD.Clear()
-LCD.Write(40,40, (end-start))
-Program.Delay(5000)
-  
+TextWindow.WriteLine("Starting...")
+For tries = 0 To 199
+ For MODE=0 To 1
+   DoScan()
+   File.AppendContents(filename, "")
+ EndFor
  
+ If Math.Remainder(tries,3)=0 Then
+    Program.Delay(300) 
+    MoveBD_b = 1     
+    MoveBD_d = 0
+    MoveBD() 
+ endif
+ If Math.Remainder(tries,5)=0 Then
+    Program.Delay(300) 
+    MoveAC_a = 0     
+    MoveAC_c = 1
+    MoveAC() 
+ endif 
+ Program.Delay(200)
+ MoveE_e = 1
+ MoveE()   
+ Program.Delay(300)
+EndFor
+
+Program.Delay(1000)
+

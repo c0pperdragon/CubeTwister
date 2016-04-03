@@ -80,8 +80,8 @@ lastusedaxis = -1               ' axis of currently running move
 ' Initialize Hardware for MotorControl
 ' at end of init all motors are locked in place
 Sub InitMotors
-  ' align gears of single-controlled motors to fit the cube orientation
-  Motor.StartPower("AC", 5)
+'  ' align gears of single-controlled motors to fit the cube orientation
+'  Motor.StartPower("AC", 5)
   ' take up slack of compound motors E
   Motor.StartPower("B",-4)  
   Motor.StartPower("D",4)
@@ -96,10 +96,28 @@ Sub InitMotors
   Motor.SchedulePower("D", 50, 0,0,0, "true")
   Motor.SchedulePower("2AC",50, 0,0,0, "true")    
   Motor.SchedulePower("2BD",-50, 0,0,0, "true")    
-  ' move single-controlled motors to 0 position and lock in place
-  Motor.SchedulePower("AC",-10,0,3,0,"true")   
+  Motor.SchedulePower("AC",-10,0,0,0,"true")   
   
   Program.Delay(200)
+EndSub
+
+TuneMotors_Keys = ""
+Sub TuneMotors
+  If Text.IsSubText(TuneMotors_Keys, "E") Then
+    Motor.SchedulePower("BD",30,0,1,0,"True")
+  EndIf
+  If Text.IsSubText(TuneMotors_Keys, "U") Then
+    Motor.SchedulePower("A",30,0,1,0,"True")
+  EndIf
+  If Text.IsSubText(TuneMotors_Keys, "D") Then
+    Motor.SchedulePower("C",30,0,1,0,"True")
+  EndIf
+  If Text.IsSubText(TuneMotors_Keys, "L") Then
+    Motor.SchedulePower("2CD",30,0,1,0,"True")
+  EndIf
+  If Text.IsSubText(TuneMotors_Keys, "R") Then
+    Motor.SchedulePower("2AB",30,0,1,0,"True")
+  EndIf
 EndSub
 
 ' Subprogram to turn faces on A-C axis   (axis 0)
@@ -300,7 +318,7 @@ Sub FullScan
   ' start first (fast) movement and scan first 20 faces
   EV3.QueueNextCommand()
   Motor.SchedulePower("2ABCD", 100, 0,30,0, "false")
-  i2cdummy = Sensor.CommunicateI2C(2,4, 1,1, CMD_STARTSCAN0)
+  i2cdummy = Sensor.CommunicateI2C(1,4, 1,1, CMD_STARTSCAN0)
 
   ' wait until scanning is surely  finished and then turn on motor regulation to reach target
   While EV3.Time < scanstarttime+65
@@ -308,7 +326,7 @@ Sub FullScan
   Motor.SchedulePower("2ABCD", 100, 0,20,0, "true")
   
   ' read out already collected color readings
-  col0 = Sensor.CommunicateI2C(2,4, 0,20, CMD_NOTHING)
+  col0 = Sensor.CommunicateI2C(1,4, 0,20, CMD_NOTHING)
    
   '  wait until first motors have nearly reached their target
   While EV3.Time < scanstarttime+90
@@ -320,7 +338,7 @@ Sub FullScan
   ' do second (slow) movement and scan next 20 faces
   EV3.QueueNextCommand()
   Motor.SchedulePower("AC", 100, 0,50,0, "false")
-  i2cdummy = Sensor.CommunicateI2C(2,4, 1,1,CMD_STARTSCAN1)
+  i2cdummy = Sensor.CommunicateI2C(1,4, 1,1,CMD_STARTSCAN1)
   
   ' switch off PWN of first motor (and correct target) and adjust internal position counter
   While EV3.Time < scanstarttime+20
@@ -334,50 +352,50 @@ Sub FullScan
   Motor.SchedulePower("AC", 100, 0,36,0, "true")  
   
   ' read out collected sensor data
-  col1 = Sensor.CommunicateI2C(2,4, 0,20, CMD_NOTHING)
+  col1 = Sensor.CommunicateI2C(1,4, 0,20, CMD_NOTHING)
 
   ' here we have some time to distribute the colors to their correct slots
-  colors[48] = col0[0]
-  colors[33] = col0[1]
-  colors[26] = col0[2]
-   colors[16] = col0[3]
-   colors[47] = col0[4]
-  colors[10] = col0[5]
-  colors[2] = col0[6]
-   colors[3] = col0[7]
-   colors[29] = col0[8]
-   colors[36] = col0[9]
-  colors[50] = col0[10]
-  colors[15] = col0[11]
-  colors[44] = col0[12]
-   colors[34] = col0[13]
-   colors[51] = col0[14]
-  colors[28] = col0[15]
-  colors[6] = col0[16]
-   colors[5] = col0[17]
-   colors[11] = col0[18]
-   colors[18] = col0[19]
+  colors[48] = Math.Remainder(col0[0],8)
+  colors[33] = Math.Remainder(col0[1],8)
+  colors[26] = Math.Remainder(col0[2],8)
+   colors[16] = Math.Remainder(col0[3],8)
+   colors[47] = Math.Remainder(col0[4],8)
+  colors[10] = Math.Remainder(col0[5],8)
+  colors[2] = Math.Remainder(col0[6],8)
+   colors[3] = Math.Remainder(col0[7],8)
+   colors[29] = Math.Remainder(col0[8],8)
+   colors[36] = Math.Remainder(col0[9],8)
+  colors[50] = Math.Remainder(col0[10],8)
+  colors[15] = Math.Remainder(col0[11],8)
+  colors[44] = Math.Remainder(col0[12],8)
+   colors[34] = Math.Remainder(col0[13],8)
+   colors[51] = Math.Remainder(col0[14],8)
+  colors[28] = Math.Remainder(col0[15],8)
+  colors[6] = Math.Remainder(col0[16],8)
+   colors[5] = Math.Remainder(col0[17],8)
+   colors[11] = Math.Remainder(col0[18],8)
+   colors[18] = Math.Remainder(col0[19],8)
  
-  colors[25] = col1[0]
-  colors[24] = col1[1]
-   colors[46] = col1[2]
-   colors[45] = col1[3]
-   colors[17] = col1[4]
-  colors[1] = col1[5]
-  colors[0] = col1[6]
-  colors[9] = col1[7]
-   colors[37] = col1[8]
-   colors[38] = col1[9]
-  colors[43] = col1[10]
-  colors[42] = col1[11]
-   colors[52] = col1[12]
-   colors[53] = col1[13]
-   colors[35] = col1[14]
-  colors[7] = col1[15]
-  colors[8] = col1[16]
-  colors[27] = col1[17]
-   colors[19] = col1[18]
-   colors[20] = col1[19]
+  colors[25] = Math.Remainder(col1[0],8)
+  colors[24] = Math.Remainder(col1[1],8)
+   colors[46] = Math.Remainder(col1[2],8)
+   colors[45] = Math.Remainder(col1[3],8)
+   colors[17] = Math.Remainder(col1[4],8)
+  colors[1] = Math.Remainder(col1[5],8)
+  colors[0] = Math.Remainder(col1[6],8)
+  colors[9] = Math.Remainder(col1[7],8)
+   colors[37] = Math.Remainder(col1[8],8)
+   colors[38] = Math.Remainder(col1[9],8)
+  colors[43] = Math.Remainder(col1[10],8)
+  colors[42] = Math.Remainder(col1[11],8)
+   colors[52] = Math.Remainder(col1[12],8)
+   colors[53] = Math.Remainder(col1[13],8)
+   colors[35] = Math.Remainder(col1[14],8)
+  colors[7] = Math.Remainder(col1[15],8)
+  colors[8] = Math.Remainder(col1[16],8)
+  colors[27] = Math.Remainder(col1[17],8)
+   colors[19] = Math.Remainder(col1[18],8)
+   colors[20] = Math.Remainder(col1[19],8)
     
   ' wait until second motor is approximately at correct end position
   While EV3.Time < scanstarttime + 130
@@ -386,18 +404,18 @@ Sub FullScan
   Motor.SchedulePower("AC", 20, 0,0,0, "false")
   
   ' do a non-moving scan of the remaining 8 faces
-  i2cdummy = Sensor.CommunicateI2C(2,4, 1,1, CMD_STARTSCAN2)
-  col2 = Sensor.CommunicateI2C(2,4, 0,8, CMD_NOTHING)
+  i2cdummy = Sensor.CommunicateI2C(1,4, 1,1, CMD_STARTSCAN2)
+  col2 = Sensor.CommunicateI2C(1,4, 0,8, CMD_NOTHING)
   
   ' transfer colors to appropriate slots
-  colors[21] = col2[0]
-  colors[14] = col2[1]
-  colors[12] = col2[2]
-  colors[41] = col2[3]
-  colors[39] = col2[4]
-  colors[32] = col2[5]
-  colors[30] = col2[6]
-  colors[23] = col2[7]
+  colors[21] = Math.Remainder(col2[0],8)
+  colors[14] = Math.Remainder(col2[1],8)
+  colors[12] = Math.Remainder(col2[2],8)
+  colors[41] = Math.Remainder(col2[3],8)
+  colors[39] = Math.Remainder(col2[4],8)
+  colors[32] = Math.Remainder(col2[5],8)
+  colors[30] = Math.Remainder(col2[6],8)
+  colors[23] = Math.Remainder(col2[7],8)
   
   ' lock everything in place
   Motor.SchedulePower("AC",  100, 0,4,0, "true")
@@ -1047,6 +1065,7 @@ EndSub
 converterror = 0
 takencornercubies = Vector.Init(8,-1)
 takenedgecubies = Vector.Init(12,-1)
+takenedgeluminosity = Vector.Init(12,-1)
 modificationcandidate1 = -1
 modificationcandidate2 = -1
 
@@ -1169,8 +1188,8 @@ Sub PutPatternToEdge
   If x<0 Then
     converterror = 3    ' unrecognized edge pattern
   Else
+    ' check if cubie was already taken
     cubie = Math.Remainder(x,100)
-    ' check if cube was already taken
     If takenedgecubies[cubie]>=0 Then
       replacement = MISSDETECTED_EDGE[cubie]
       ' if the possible replacement was not used yet and there was no other modification - may still succeed 
@@ -1196,7 +1215,7 @@ Sub ConvertColorsToCubies
   takencornercubies = Vector.Init(8,-1)
   takenedgecubies = Vector.Init(12,-1)
   modificationcandidate1 = -1
-  modificatiocandidate2 = -1
+  modificationcandidate2 = -1
   
   PutPatternToCorner_pattern = 100*colors[20] + 10*colors[8] + colors[27]
   PutPatternToCorner_corner = ULF
@@ -1287,18 +1306,21 @@ Sub Main
 
     ' wait for start button 
     While Sensor.ReadPercent(3)<80 
-    EndWhile
-    ' reset counter on button down
-    stopwatchdummy = Sensor.CommunicateI2C(1,4, 1,1, STOPWATCHCMD_RESET)
-    Program.Delay(100)
-    ' really start at button up
-    While Sensor.ReadPercent(3)>20 
+      ' fine-calibration of motor positions
+      TuneMotors_Keys = Buttons.Current
+      If Text.GetLength(TuneMotors_Keys)>0 Then
+        TuneMotors()
+        Program.Delay(200)
+      endif
     EndWhile
     
     EV3.SetLEDColor("red", "normal")
-    stopwatchdummy = Sensor.CommunicateI2C(1,4, 1,1, STOPWATCHCMD_START)
+    stopwatchdummy = Sensor.CommunicateI2C(2,4, 1,1, STOPWATCHCMD_RESET)
+    stopwatchdummy = Sensor.CommunicateI2C(2,4, 1,1, STOPWATCHCMD_START)
     starttime = EV3.Time
-        
+    
+    retries = 2
+ tryscan:
     ' do full scan
     FullScan()
     scanendtime = EV3.Time  
@@ -1333,9 +1355,14 @@ Sub Main
     
     ' in case of any converterror, abort operation  
     If converterror<>0 Then
+      If retries>0 then
+         retries = retries-1
+         Goto tryscan
+      endif
       WriteColors()
       LCD.Write(100,112,"ERR"+converterror)
       Speaker.Tone(50, 440, 250)
+      stopwatchdummy = Sensor.CommunicateI2C(2,4, 1,1, STOPWATCHCMD_RESET)
       Goto waitforstart
     EndIf
     
@@ -1357,7 +1384,7 @@ Sub Main
     WaitForMotorFinished()
   
     endtime = EV3.Time
-    stopwatchdummy = Sensor.CommunicateI2C(1,4, 1,1, STOPWATCHCMD_STOP)
+    stopwatchdummy = Sensor.CommunicateI2C(2,4, 1,1, STOPWATCHCMD_STOP)
   
     ' write result
     LCD.Clear()
