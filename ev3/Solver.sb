@@ -309,8 +309,8 @@ Sub FullScan
   colors[40] = 4
   colors[49] = 1
   
-  ' turn of unused motors to avoid elecotromagnetic noise
-  Motor.SchedulePower("ABCD", 0, 0,0,0, "false")
+'  ' turn of unused motors to avoid elecotromagnetic noise
+'  Motor.SchedulePower("ABCD", 0, 0,0,0, "false")
   
   ' time zero for first scan
   scanstarttime = EV3.Time
@@ -355,47 +355,47 @@ Sub FullScan
   col1 = Sensor.CommunicateI2C(1,4, 0,20, CMD_NOTHING)
 
   ' here we have some time to distribute the colors to their correct slots
-  colors[48] = Math.Remainder(col0[0],8)
-  colors[33] = Math.Remainder(col0[1],8)
-  colors[26] = Math.Remainder(col0[2],8)
-   colors[16] = Math.Remainder(col0[3],8)
-   colors[47] = Math.Remainder(col0[4],8)
-  colors[10] = Math.Remainder(col0[5],8)
-  colors[2] = Math.Remainder(col0[6],8)
-   colors[3] = Math.Remainder(col0[7],8)
-   colors[29] = Math.Remainder(col0[8],8)
-   colors[36] = Math.Remainder(col0[9],8)
-  colors[50] = Math.Remainder(col0[10],8)
-  colors[15] = Math.Remainder(col0[11],8)
-  colors[44] = Math.Remainder(col0[12],8)
-   colors[34] = Math.Remainder(col0[13],8)
-   colors[51] = Math.Remainder(col0[14],8)
-  colors[28] = Math.Remainder(col0[15],8)
-  colors[6] = Math.Remainder(col0[16],8)
-   colors[5] = Math.Remainder(col0[17],8)
-   colors[11] = Math.Remainder(col0[18],8)
-   colors[18] = Math.Remainder(col0[19],8)
+  colors[48] = col0[0]
+  colors[33] = col0[1]
+  colors[26] = col0[2]
+   colors[16] = col0[3]
+   colors[47] = col0[4]
+  colors[10] = col0[5]
+  colors[2] = col0[6]
+   colors[3] = col0[7]
+   colors[29] = col0[8]
+   colors[36] = col0[9]
+  colors[50] = col0[10]
+  colors[15] = col0[11]
+  colors[44] = col0[12]
+   colors[34] = col0[13]
+   colors[51] = col0[14]
+  colors[28] = col0[15]
+  colors[6] = col0[16]
+   colors[5] = col0[17]
+   colors[11] = col0[18]
+   colors[18] = col0[19]
  
-  colors[25] = Math.Remainder(col1[0],8)
-  colors[24] = Math.Remainder(col1[1],8)
-   colors[46] = Math.Remainder(col1[2],8)
-   colors[45] = Math.Remainder(col1[3],8)
-   colors[17] = Math.Remainder(col1[4],8)
-  colors[1] = Math.Remainder(col1[5],8)
-  colors[0] = Math.Remainder(col1[6],8)
-  colors[9] = Math.Remainder(col1[7],8)
-   colors[37] = Math.Remainder(col1[8],8)
-   colors[38] = Math.Remainder(col1[9],8)
-  colors[43] = Math.Remainder(col1[10],8)
-  colors[42] = Math.Remainder(col1[11],8)
-   colors[52] = Math.Remainder(col1[12],8)
-   colors[53] = Math.Remainder(col1[13],8)
-   colors[35] = Math.Remainder(col1[14],8)
-  colors[7] = Math.Remainder(col1[15],8)
-  colors[8] = Math.Remainder(col1[16],8)
-  colors[27] = Math.Remainder(col1[17],8)
-   colors[19] = Math.Remainder(col1[18],8)
-   colors[20] = Math.Remainder(col1[19],8)
+  colors[25] = col1[0]
+  colors[24] = col1[1]
+   colors[46] = col1[2]
+   colors[45] = col1[3]
+   colors[17] = col1[4]
+  colors[1] = col1[5]
+  colors[0] = col1[6]
+  colors[9] = col1[7]
+   colors[37] = col1[8]
+   colors[38] = col1[9]
+  colors[43] = col1[10]
+  colors[42] = col1[11]
+   colors[52] = col1[12]
+   colors[53] = col1[13]
+   colors[35] = col1[14]
+  colors[7] = col1[15]
+  colors[8] = col1[16]
+  colors[27] = col1[17]
+   colors[19] = col1[18]
+   colors[20] = col1[19]
     
   ' wait until second motor is approximately at correct end position
   While EV3.Time < scanstarttime + 130
@@ -408,14 +408,14 @@ Sub FullScan
   col2 = Sensor.CommunicateI2C(1,4, 0,8, CMD_NOTHING)
   
   ' transfer colors to appropriate slots
-  colors[21] = Math.Remainder(col2[0],8)
-  colors[14] = Math.Remainder(col2[1],8)
-  colors[12] = Math.Remainder(col2[2],8)
-  colors[41] = Math.Remainder(col2[3],8)
-  colors[39] = Math.Remainder(col2[4],8)
-  colors[32] = Math.Remainder(col2[5],8)
-  colors[30] = Math.Remainder(col2[6],8)
-  colors[23] = Math.Remainder(col2[7],8)
+  colors[21] = col2[0]
+  colors[14] = col2[1]
+  colors[12] = col2[2]
+  colors[41] = col2[3]
+  colors[39] = col2[4]
+  colors[32] = col2[5]
+  colors[30] = col2[6]
+  colors[23] = col2[7]
   
   ' lock everything in place
   Motor.SchedulePower("AC",  100, 0,4,0, "true")

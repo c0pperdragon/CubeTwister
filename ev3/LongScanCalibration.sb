@@ -66,8 +66,8 @@ lastusedaxis = -1               ' axis of currently running move
 ' Initialize Hardware for MotorControl
 ' at end of init all motors are locked in place
 Sub InitMotors
-  ' align gears of single-controlled motors to fit the cube orientation
-  Motor.StartPower("AC", 5)
+'  ' align gears of single-controlled motors to fit the cube orientation
+'  Motor.StartPower("AC", 5)
   ' take up slack of compound motors E
   Motor.StartPower("B",-4)  
   Motor.StartPower("D",4)
@@ -82,10 +82,28 @@ Sub InitMotors
   Motor.SchedulePower("D", 50, 0,0,0, "true")
   Motor.SchedulePower("2AC",50, 0,0,0, "true")    
   Motor.SchedulePower("2BD",-50, 0,0,0, "true")    
-  ' move single-controlled motors to 0 position and lock in place
-  Motor.SchedulePower("AC",-10,0,3,0,"true")   
+  Motor.SchedulePower("AC",-10,0,0,0,"true")   
   
   Program.Delay(200)
+EndSub
+
+TuneMotors_Keys = ""
+Sub TuneMotors
+  If Text.IsSubText(TuneMotors_Keys, "E") Then
+    Motor.SchedulePower("BD",30,0,1,0,"True")
+  EndIf
+  If Text.IsSubText(TuneMotors_Keys, "U") Then
+    Motor.SchedulePower("A",30,0,1,0,"True")
+  EndIf
+  If Text.IsSubText(TuneMotors_Keys, "D") Then
+    Motor.SchedulePower("C",30,0,1,0,"True")
+  EndIf
+  If Text.IsSubText(TuneMotors_Keys, "L") Then
+    Motor.SchedulePower("2CD",30,0,1,0,"True")
+  EndIf
+  If Text.IsSubText(TuneMotors_Keys, "R") Then
+    Motor.SchedulePower("2AB",30,0,1,0,"True")
+  EndIf
 EndSub
 
 ' Subprogram to turn faces on A-C axis   (axis 0)
@@ -241,6 +259,7 @@ Sub WaitForMotorFinished
   While EV3.Time < moveendtime
   EndWhile  
 EndSub
+
 
 
 ' I2C protocol tags

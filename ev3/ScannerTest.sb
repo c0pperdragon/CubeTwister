@@ -71,7 +71,7 @@ EndIf
 
 
 
-MotorControl_Init()
+InitMotors()
 
 
 If MODE=1 Then
@@ -205,31 +205,26 @@ Sub DetermineColor
 EndSub
 
 
-Sub MotorControl_Init
-  Motor.Stop("ABCD","False")
-  Motor.Stop("2ABCD","False")
-  ' align gears of single-controlled motors to fit the cube orientation
-  Motor.StartPower("AC", 2)
+' Initialize Hardware for MotorControl
+' at end of init all motors are locked in place
+Sub InitMotors
+'  ' align gears of single-controlled motors to fit the cube orientation
+'  Motor.StartPower("AC", 5)
   ' take up slack of compound motors E
-  Motor.StartPower("B",-5)
-  Motor.StartPower("D",5)
+  Motor.StartPower("B",-4)  
+  Motor.StartPower("D",4)
   ' take up slack of compound motors B and D
-  Motor.StartPower("2AC", 7)
-  Motor.StartPower("2BD", -7)
+  Motor.StartPower("2AC", 4)
+  Motor.StartPower("2BD", -4)
   
-  Program.Delay(100)
+  Program.Delay(200)
   
-  ' stop all aligment moves
-  Motor.Stop("ABCD","true")    
-  Motor.Stop("2ABCD","true")    
-  Program.Delay(100)
-  Motor.ResetCount("ABCD")
-  Motor.ResetCount("2ABCD")
+  ' lock in place
+  Motor.SchedulePower("B", -50, 0,0,0, "true")
+  Motor.SchedulePower("D", 50, 0,0,0, "true")
+  Motor.SchedulePower("2AC",50, 0,0,0, "true")    
+  Motor.SchedulePower("2BD",-50, 0,0,0, "true")    
+  Motor.SchedulePower("AC",-10,0,0,0,"true")   
   
-  ' move single-controlled motors to 0 position
-  Motor.SchedulePower("AC",-10,0,3,0,"true")   
-  Program.Delay(100)
-
-  Motor.Stop("ABCD","false")    
-  Motor.Stop("2ABCD","false")      
+  Program.Delay(200)
 EndSub

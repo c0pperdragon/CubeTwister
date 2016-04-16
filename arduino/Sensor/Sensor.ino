@@ -224,7 +224,7 @@ byte extract_color(int sensor, int orientation, int sample)
   byte c;
   for (c=0; c<6; c++)
   {
-      getcalibration(sensor,orientation,c,reference);
+      getcalibration_ultimate2(sensor,orientation,c,reference);
       
       int dr = ((int) r)-reference[0];
       int dg = ((int) g)-reference[1];
@@ -278,6 +278,235 @@ void sendData()
 }
 
 void getcalibration(byte sensor,byte orientation,byte color,byte* rgb) {
+   switch (sensor*24+orientation*6+color) {
+        case 0: rgb[0]=108; rgb[1]=163; rgb[2]=138; break;
+        case 1: rgb[0]=72; rgb[1]=41; rgb[2]=42; break;
+        case 2: rgb[0]=32; rgb[1]=93; rgb[2]=92; break;
+        case 3: rgb[0]=30; rgb[1]=73; rgb[2]=88; break;
+        case 4: rgb[0]=96; rgb[1]=144; rgb[2]=141; break;
+        case 5: rgb[0]=95; rgb[1]=151; rgb[2]=144; break;
+
+        case 6: rgb[0]=140; rgb[1]=183; rgb[2]=186; break;
+        case 7: rgb[0]=87; rgb[1]=39; rgb[2]=37; break;
+        case 8: rgb[0]=30; rgb[1]=98; rgb[2]=119; break;
+        case 9: rgb[0]=28; rgb[1]=73; rgb[2]=112; break;
+        case 10: rgb[0]=118; rgb[1]=157; rgb[2]=189; break;
+        case 11: rgb[0]=113; rgb[1]=169; rgb[2]=196; break;
+
+        case 12: rgb[0]=124; rgb[1]=187; rgb[2]=147; break;
+        case 13: rgb[0]=70; rgb[1]=14; rgb[2]=8; break;
+        case 14: rgb[0]=7; rgb[1]=88; rgb[2]=83; break;
+        case 15: rgb[0]=3; rgb[1]=56; rgb[2]=76; break;
+        case 16: rgb[0]=102; rgb[1]=158; rgb[2]=150; break;
+        case 17: rgb[0]=97; rgb[1]=167; rgb[2]=151; break;
+
+        case 18: rgb[0]=95; rgb[1]=126; rgb[2]=110; break;
+        case 19: rgb[0]=52; rgb[1]=12; rgb[2]=8; break;
+        case 20: rgb[0]=7; rgb[1]=62; rgb[2]=65; break;
+        case 21: rgb[0]=3; rgb[1]=43; rgb[2]=61; break;
+        case 22: rgb[0]=79; rgb[1]=109; rgb[2]=114; break;
+        case 23: rgb[0]=76; rgb[1]=118; rgb[2]=117; break;
+
+        case 24: rgb[0]=136; rgb[1]=210; rgb[2]=223; break;
+        case 25: rgb[0]=85; rgb[1]=52; rgb[2]=50; break;
+        case 26: rgb[0]=30; rgb[1]=119; rgb[2]=142; break;
+        case 27: rgb[0]=28; rgb[1]=89; rgb[2]=132; break;
+        case 28: rgb[0]=117; rgb[1]=184; rgb[2]=227; break;
+        case 29: rgb[0]=113; rgb[1]=194; rgb[2]=233; break;
+
+        case 30: rgb[0]=120; rgb[1]=161; rgb[2]=185; break;
+        case 31: rgb[0]=74; rgb[1]=51; rgb[2]=48; break;
+        case 32: rgb[0]=28; rgb[1]=99; rgb[2]=125; break;
+        case 33: rgb[0]=27; rgb[1]=79; rgb[2]=115; break;
+        case 34: rgb[0]=102; rgb[1]=140; rgb[2]=187; break;
+        case 35: rgb[0]=99; rgb[1]=151; rgb[2]=192; break;
+
+        case 36: rgb[0]=134; rgb[1]=208; rgb[2]=205; break;
+        case 37: rgb[0]=73; rgb[1]=17; rgb[2]=11; break;
+        case 38: rgb[0]=10; rgb[1]=99; rgb[2]=116; break;
+        case 39: rgb[0]=7; rgb[1]=64; rgb[2]=106; break;
+        case 40: rgb[0]=115; rgb[1]=179; rgb[2]=216; break;
+        case 41: rgb[0]=104; rgb[1]=190; rgb[2]=213; break;
+
+        case 42: rgb[0]=179; rgb[1]=174; rgb[2]=214; break;
+        case 43: rgb[0]=99; rgb[1]=15; rgb[2]=10; break;
+        case 44: rgb[0]=14; rgb[1]=88; rgb[2]=130; break;
+        case 45: rgb[0]=8; rgb[1]=58; rgb[2]=119; break;
+        case 46: rgb[0]=154; rgb[1]=152; rgb[2]=229; break;
+        case 47: rgb[0]=142; rgb[1]=161; rgb[2]=228; break;
+
+        case 48: rgb[0]=101; rgb[1]=196; rgb[2]=153; break;
+        case 49: rgb[0]=70; rgb[1]=68; rgb[2]=43; break;
+        case 50: rgb[0]=35; rgb[1]=123; rgb[2]=101; break;
+        case 51: rgb[0]=32; rgb[1]=101; rgb[2]=95; break;
+        case 52: rgb[0]=88; rgb[1]=175; rgb[2]=154; break;
+        case 53: rgb[0]=86; rgb[1]=185; rgb[2]=156; break;
+
+        case 54: rgb[0]=88; rgb[1]=181; rgb[2]=131; break;
+        case 55: rgb[0]=55; rgb[1]=59; rgb[2]=34; break;
+        case 56: rgb[0]=27; rgb[1]=110; rgb[2]=83; break;
+        case 57: rgb[0]=25; rgb[1]=90; rgb[2]=79; break;
+        case 58: rgb[0]=74; rgb[1]=157; rgb[2]=129; break;
+        case 59: rgb[0]=71; rgb[1]=164; rgb[2]=130; break;
+
+        case 60: rgb[0]=80; rgb[1]=137; rgb[2]=118; break;
+        case 61: rgb[0]=45; rgb[1]=13; rgb[2]=5; break;
+        case 62: rgb[0]=5; rgb[1]=71; rgb[2]=72; break;
+        case 63: rgb[0]=4; rgb[1]=47; rgb[2]=63; break;
+        case 64: rgb[0]=64; rgb[1]=113; rgb[2]=116; break;
+        case 65: rgb[0]=66; rgb[1]=129; rgb[2]=129; break;
+
+        case 66: rgb[0]=101; rgb[1]=138; rgb[2]=132; break;
+        case 67: rgb[0]=54; rgb[1]=14; rgb[2]=7; break;
+        case 68: rgb[0]=3; rgb[1]=68; rgb[2]=72; break;
+        case 69: rgb[0]=4; rgb[1]=47; rgb[2]=67; break;
+        case 70: rgb[0]=80; rgb[1]=115; rgb[2]=128; break;
+        case 71: rgb[0]=79; rgb[1]=127; rgb[2]=138; break;
+
+        case 72: rgb[0]=88; rgb[1]=118; rgb[2]=105; break;
+        case 73: rgb[0]=59; rgb[1]=29; rgb[2]=29; break;
+        case 74: rgb[0]=30; rgb[1]=69; rgb[2]=71; break;
+        case 75: rgb[0]=30; rgb[1]=54; rgb[2]=69; break;
+        case 76: rgb[0]=80; rgb[1]=107; rgb[2]=112; break;
+        case 77: rgb[0]=76; rgb[1]=111; rgb[2]=110; break;
+
+        case 78: rgb[0]=86; rgb[1]=136; rgb[2]=117; break;
+        case 79: rgb[0]=58; rgb[1]=25; rgb[2]=30; break;
+        case 80: rgb[0]=31; rgb[1]=75; rgb[2]=79; break;
+        case 81: rgb[0]=30; rgb[1]=57; rgb[2]=76; break;
+        case 82: rgb[0]=79; rgb[1]=122; rgb[2]=123; break;
+        case 83: rgb[0]=77; rgb[1]=129; rgb[2]=123; break;
+
+        case 84: rgb[0]=77; rgb[1]=94; rgb[2]=94; break;
+        case 85: rgb[0]=49; rgb[1]=4; rgb[2]=5; break;
+        case 86: rgb[0]=4; rgb[1]=51; rgb[2]=64; break;
+        case 87: rgb[0]=2; rgb[1]=30; rgb[2]=57; break;
+        case 88: rgb[0]=72; rgb[1]=91; rgb[2]=111; break;
+        case 89: rgb[0]=66; rgb[1]=96; rgb[2]=112; break;
+
+        case 90: rgb[0]=61; rgb[1]=83; rgb[2]=73; break;
+        case 91: rgb[0]=30; rgb[1]=6; rgb[2]=7; break;
+        case 92: rgb[0]=3; rgb[1]=41; rgb[2]=44; break;
+        case 93: rgb[0]=3; rgb[1]=27; rgb[2]=43; break;
+        case 94: rgb[0]=52; rgb[1]=73; rgb[2]=76; break;
+        case 95: rgb[0]=51; rgb[1]=77; rgb[2]=77; break;
+
+        case 96: rgb[0]=89; rgb[1]=142; rgb[2]=112; break;
+        case 97: rgb[0]=58; rgb[1]=35; rgb[2]=37; break;
+        case 98: rgb[0]=29; rgb[1]=80; rgb[2]=79; break;
+        case 99: rgb[0]=31; rgb[1]=63; rgb[2]=79; break;
+        case 100: rgb[0]=77; rgb[1]=127; rgb[2]=117; break;
+        case 101: rgb[0]=75; rgb[1]=132; rgb[2]=119; break;
+
+        case 102: rgb[0]=123; rgb[1]=171; rgb[2]=167; break;
+        case 103: rgb[0]=75; rgb[1]=34; rgb[2]=30; break;
+        case 104: rgb[0]=27; rgb[1]=91; rgb[2]=107; break;
+        case 105: rgb[0]=25; rgb[1]=67; rgb[2]=102; break;
+        case 106: rgb[0]=108; rgb[1]=151; rgb[2]=176; break;
+        case 107: rgb[0]=104; rgb[1]=160; rgb[2]=178; break;
+
+        case 108: rgb[0]=107; rgb[1]=172; rgb[2]=133; break;
+        case 109: rgb[0]=60; rgb[1]=8; rgb[2]=6; break;
+        case 110: rgb[0]=6; rgb[1]=80; rgb[2]=79; break;
+        case 111: rgb[0]=2; rgb[1]=53; rgb[2]=72; break;
+        case 112: rgb[0]=87; rgb[1]=144; rgb[2]=133; break;
+        case 113: rgb[0]=84; rgb[1]=159; rgb[2]=141; break;
+
+        case 114: rgb[0]=94; rgb[1]=135; rgb[2]=109; break;
+        case 115: rgb[0]=52; rgb[1]=7; rgb[2]=6; break;
+        case 116: rgb[0]=5; rgb[1]=63; rgb[2]=65; break;
+        case 117: rgb[0]=1; rgb[1]=40; rgb[2]=60; break;
+        case 118: rgb[0]=76; rgb[1]=117; rgb[2]=114; break;
+        case 119: rgb[0]=73; rgb[1]=127; rgb[2]=117; break;
+
+        case 120: rgb[0]=89; rgb[1]=114; rgb[2]=126; break;
+        case 121: rgb[0]=54; rgb[1]=26; rgb[2]=29; break;
+        case 122: rgb[0]=23; rgb[1]=64; rgb[2]=80; break;
+        case 123: rgb[0]=21; rgb[1]=48; rgb[2]=76; break;
+        case 124: rgb[0]=77; rgb[1]=97; rgb[2]=130; break;
+        case 125: rgb[0]=73; rgb[1]=103; rgb[2]=130; break;
+
+        case 126: rgb[0]=95; rgb[1]=110; rgb[2]=128; break;
+        case 127: rgb[0]=55; rgb[1]=22; rgb[2]=28; break;
+        case 128: rgb[0]=21; rgb[1]=64; rgb[2]=83; break;
+        case 129: rgb[0]=17; rgb[1]=46; rgb[2]=79; break;
+        case 130: rgb[0]=80; rgb[1]=95; rgb[2]=133; break;
+        case 131: rgb[0]=77; rgb[1]=101; rgb[2]=135; break;
+
+        case 132: rgb[0]=62; rgb[1]=80; rgb[2]=90; break;
+        case 133: rgb[0]=35; rgb[1]=4; rgb[2]=4; break;
+        case 134: rgb[0]=5; rgb[1]=36; rgb[2]=51; break;
+        case 135: rgb[0]=3; rgb[1]=26; rgb[2]=51; break;
+        case 136: rgb[0]=55; rgb[1]=72; rgb[2]=98; break;
+        case 137: rgb[0]=48; rgb[1]=73; rgb[2]=94; break;
+
+        case 138: rgb[0]=117; rgb[1]=106; rgb[2]=136; break;
+        case 139: rgb[0]=65; rgb[1]=6; rgb[2]=6; break;
+        case 140: rgb[0]=11; rgb[1]=50; rgb[2]=78; break;
+        case 141: rgb[0]=6; rgb[1]=31; rgb[2]=71; break;
+        case 142: rgb[0]=100; rgb[1]=92; rgb[2]=140; break;
+        case 143: rgb[0]=96; rgb[1]=97; rgb[2]=146; break;
+
+        case 144: rgb[0]=131; rgb[1]=214; rgb[2]=181; break;
+        case 145: rgb[0]=86; rgb[1]=47; rgb[2]=36; break;
+        case 146: rgb[0]=39; rgb[1]=119; rgb[2]=115; break;
+        case 147: rgb[0]=37; rgb[1]=89; rgb[2]=109; break;
+        case 148: rgb[0]=112; rgb[1]=185; rgb[2]=185; break;
+        case 149: rgb[0]=110; rgb[1]=199; rgb[2]=190; break;
+
+        case 150: rgb[0]=95; rgb[1]=141; rgb[2]=123; break;
+        case 151: rgb[0]=58; rgb[1]=46; rgb[2]=35; break;
+        case 152: rgb[0]=34; rgb[1]=89; rgb[2]=82; break;
+        case 153: rgb[0]=33; rgb[1]=76; rgb[2]=81; break;
+        case 154: rgb[0]=80; rgb[1]=122; rgb[2]=120; break;
+        case 155: rgb[0]=84; rgb[1]=136; rgb[2]=130; break;
+
+        case 156: rgb[0]=117; rgb[1]=205; rgb[2]=178; break;
+        case 157: rgb[0]=66; rgb[1]=8; rgb[2]=6; break;
+        case 158: rgb[0]=4; rgb[1]=94; rgb[2]=105; break;
+        case 159: rgb[0]=3; rgb[1]=60; rgb[2]=92; break;
+        case 160: rgb[0]=99; rgb[1]=172; rgb[2]=186; break;
+        case 161: rgb[0]=96; rgb[1]=190; rgb[2]=196; break;
+
+        case 162: rgb[0]=140; rgb[1]=168; rgb[2]=171; break;
+        case 163: rgb[0]=77; rgb[1]=8; rgb[2]=7; break;
+        case 164: rgb[0]=6; rgb[1]=78; rgb[2]=102; break;
+        case 165: rgb[0]=3; rgb[1]=50; rgb[2]=89; break;
+        case 166: rgb[0]=116; rgb[1]=142; rgb[2]=179; break;
+        case 167: rgb[0]=110; rgb[1]=156; rgb[2]=187; break;
+
+        case 168: rgb[0]=109; rgb[1]=210; rgb[2]=175; break;
+        case 169: rgb[0]=66; rgb[1]=58; rgb[2]=38; break;
+        case 170: rgb[0]=25; rgb[1]=124; rgb[2]=111; break;
+        case 171: rgb[0]=27; rgb[1]=100; rgb[2]=109; break;
+        case 172: rgb[0]=93; rgb[1]=185; rgb[2]=177; break;
+        case 173: rgb[0]=89; rgb[1]=195; rgb[2]=180; break;
+
+        case 174: rgb[0]=107; rgb[1]=231; rgb[2]=190; break;
+        case 175: rgb[0]=65; rgb[1]=55; rgb[2]=37; break;
+        case 176: rgb[0]=26; rgb[1]=131; rgb[2]=119; break;
+        case 177: rgb[0]=24; rgb[1]=104; rgb[2]=114; break;
+        case 178: rgb[0]=93; rgb[1]=203; rgb[2]=195; break;
+        case 179: rgb[0]=87; rgb[1]=214; rgb[2]=195; break;
+
+        case 180: rgb[0]=164; rgb[1]=230; rgb[2]=217; break;
+        case 181: rgb[0]=88; rgb[1]=14; rgb[2]=11; break;
+        case 182: rgb[0]=10; rgb[1]=108; rgb[2]=129; break;
+        case 183: rgb[0]=5; rgb[1]=69; rgb[2]=111; break;
+        case 184: rgb[0]=131; rgb[1]=188; rgb[2]=215; break;
+        case 185: rgb[0]=130; rgb[1]=215; rgb[2]=236; break;
+
+        case 186: rgb[0]=118; rgb[1]=241; rgb[2]=195; break;
+        case 187: rgb[0]=67; rgb[1]=15; rgb[2]=12; break;
+        case 188: rgb[0]=8; rgb[1]=114; rgb[2]=113; break;
+        case 189: rgb[0]=5; rgb[1]=74; rgb[2]=109; break;
+        case 190: rgb[0]=106; rgb[1]=209; rgb[2]=209; break;
+        case 191: rgb[0]=94; rgb[1]=220; rgb[2]=207; break;
+
+    }
+}
+
+void getcalibration_ultimate2(byte sensor,byte orientation,byte color,byte* rgb) {
    switch (sensor*24+orientation*6+color) {
         case 0: rgb[0]=116; rgb[1]=180; rgb[2]=153; break;
         case 1: rgb[0]=102; rgb[1]=45; rgb[2]=39; break;
