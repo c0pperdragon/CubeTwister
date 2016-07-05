@@ -15,14 +15,19 @@ long int starttime;    // system timestamp of counter start (the value of "count
 
 
 void setup() {
-  // using digital pin 0 - 7 and analog pin 0 - 3 as output
+  // using digital pin 0,1,4-7 and analog pin 0 - 5 as output
   int p;
-  for (p=0; p<8; p++)
+  for (p=0; p<2; p++)
   {  
     pinMode(p, OUTPUT);
     digitalWrite(p, LOW); 
   }  
-  for (p=0; p<4; p++)
+  for (p=4; p<8; p++)
+  {  
+    pinMode(p, OUTPUT);
+    digitalWrite(p, LOW); 
+  }  
+  for (p=0; p<6; p++)
   {  
     pinMode(A0+p, OUTPUT);
     digitalWrite(A0+p, LOW); 
@@ -83,10 +88,14 @@ void showTime(int value)
 
 void showPattern(int pos, int pattern)
 {
-  int segment;
+  byte segment;
   for (segment=0; segment<8; segment++)
   {
-    digitalWrite(segment<4 ? segment : A0+(segment-4),  (pattern&(1<<segment))==0 ? LOW : HIGH);
+    byte x = (pattern&(1<<segment))==0 ? LOW : HIGH;
+    if (segment<2) digitalWrite(segment, x);
+    else if (segment<4) digitalWrite(A4 + (3-segment), x);
+    else digitalWrite(A0+(segment-4), x);    
+//    digitalWrite(segment<4 ? segment : A0+(segment-4),  (pattern&(1<<segment))==0 ? LOW : HIGH);
   }
   digitalWrite(4+pos, HIGH);
   delay(1);
